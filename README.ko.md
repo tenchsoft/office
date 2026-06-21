@@ -91,7 +91,6 @@ cargo run --locked -p docs    # 또는: sheets, slides, kodocs
 ## 가격
 
 - **기기당 월 $1** — 모든 업데이트, 패치, 새 기능 포함.
-- **볼륨** (5대 이상) — 30% 할인, 기기당 월 $0.70.
 - 언제든 취소, 현재 버전 유지. 잠금 없음.
 
 → https://tenchsoft.com/pricing

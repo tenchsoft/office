@@ -91,7 +91,6 @@ cargo run --locked -p docs    # or: sheets, slides, kodocs
 ## Pricing
 
 - **$1 / month per device** — every update, every patch, every new feature.
-- **Bulk** (5+ devices) — 30% off, $0.70/device/month.
 - Cancel anytime, keep the version you have. No lock-out.
 
 → https://tenchsoft.com/pricing
