@@ -2,6 +2,7 @@
 
 mod actions;
 mod automation;
+mod automation_license;
 mod charts;
 mod dialogs;
 mod dialogs2;
@@ -84,6 +85,10 @@ pub struct SheetsApp {
     #[allow(dead_code)] // ImageCache will be used for cell inline images in a future phase.
     image_cache: ImageCache,
     zoom_slider_dragging: bool,
+    /// Encrypted license credential store. Read by automation nodes so UI
+    /// tests can verify activation state without going through the Tauri
+    /// command layer.
+    license_store: Option<std::sync::Arc<tench_license_store::LicenseStore>>,
 }
 
 impl Default for SheetsApp {
@@ -101,7 +106,17 @@ impl SheetsApp {
             text_cache: TextCache::new(),
             image_cache: ImageCache::default_capacity(),
             zoom_slider_dragging: false,
+            license_store: None,
         }
+    }
+
+    /// Set the license credential store. After this is called, automation
+    /// nodes `sheets.license.*` will be emitted with the current state.
+    pub fn set_license_store(
+        &mut self,
+        store: std::sync::Arc<tench_license_store::LicenseStore>,
+    ) {
+        self.license_store = Some(store);
     }
 
     /// Access the internal state (read-only).

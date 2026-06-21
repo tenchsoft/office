@@ -348,7 +348,13 @@ impl Widget for SlidesApp {
     }
 
     fn automation_children(&self, state: &WidgetState) -> Vec<UiAutomationNode> {
-        automation::slides_automation_nodes(&self.state, state.size, state.id.to_raw())
+        let mut nodes =
+            automation::slides_automation_nodes(&self.state, state.size, state.id.to_raw());
+        if let Some(store) = &self.license_store {
+            let next_id = nodes.last().map(|n| n.id).unwrap_or(0).saturating_add(1);
+            automation::push_license_nodes(&mut nodes, next_id, store, "slides");
+        }
+        nodes
     }
 
     fn debug_id(&self) -> Option<&str> {

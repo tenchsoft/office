@@ -35,8 +35,97 @@ pub fn dialog_sender() -> Option<&'static mpsc::Sender<DialogResult>> {
 
 pub type BackendState = tench_ui::platform::TauriBackendState;
 
+/// Interval between update checks. Per the licensing contract, checks happen
+/// weekly (the device_token TTL is 10 days so there is a 3-day grace window).
+const UPDATE_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(7 * 24 * 60 * 60);
+
+/// Spawns a background thread that periodically checks for updates via
+/// tauri-plugin-updater. The updater endpoint is the per-app
+/// `/api/device/releases` URL configured in `tauri.conf.json`; we inject the
+/// device_token at runtime via the `Authorization: Tench-Device` header so the
+/// server can reject expired licenses.
+///
+/// Behaviour:
+/// - License unactivated/expired → check is skipped (UI shows the
+///   reactivation label).
+/// - License active but token missing → skipped (caller will re-issue on
+///   next user-initiated check).
+/// - License active with token → call Tauri updater. On success, Tauri
+///   itself handles download + install + restart.
+///
+/// Errors are logged and swallowed — the scheduler must never crash the app.
+pub(crate) fn spawn_update_scheduler(
+    app_handle: tauri::AppHandle,
+    license_store: std::sync::Arc<tench_license_store::LicenseStore>,
+    _product: &str,
+) {
+    let product = _product.to_string();
+    std::thread::spawn(move || {
+        // Small initial delay so the app window finishes opening before we
+        // hit the network for the first check.
+        std::thread::sleep(std::time::Duration::from_secs(30));
+        loop {
+            run_one_update_check(&app_handle, &license_store, &product);
+            std::thread::sleep(UPDATE_CHECK_INTERVAL);
+        }
+    });
+}
+
+fn run_one_update_check(
+    app_handle: &tauri::AppHandle,
+    license_store: &tench_license_store::LicenseStore,
+    _product: &str,
+) {
+    use tench_license_store::LicenseStatus;
+    let state = license_store.state();
+    if state.status() != LicenseStatus::Active {
+        // Either unactivated or expired — surface via UI notification label
+        // (handled by the UI layer); the scheduler just skips.
+        return;
+    }
+    let Some(token) = state.device_token.clone() else {
+        return;
+    };
+
+    let auth = format!("Tench-Device {token}");
+    let result = tauri::async_runtime::block_on(async move {
+        use tauri_plugin_updater::UpdaterExt;
+        let updater = match app_handle
+            .updater_builder()
+            .header("Authorization", auth)?
+            .build()
+        {
+            Ok(u) => u,
+            Err(e) => {
+                eprintln!("update scheduler: failed to build updater: {e}");
+                return Ok::<(), tauri_plugin_updater::Error>(());
+            }
+        };
+        match updater.check().await {
+            Ok(Some(update)) => {
+                eprintln!(
+                    "update scheduler: new version {} available (current {}), installing",
+                    update.version,
+                    update.current_version
+                );
+                if let Err(e) = update.download_and_install(|_, _| {}, || {}).await {
+                    eprintln!("update scheduler: download/install failed: {e}");
+                }
+            }
+            Ok(None) => {
+                eprintln!("update scheduler: no update available");
+            }
+            Err(e) => {
+                eprintln!("update scheduler: check failed: {e}");
+            }
+        }
+        Ok(())
+    });
+    let _ = result;
+}
+
 /// Initialize tench-ui rendering on a Tauri window.
-pub fn init_tenchi_ui(app: &mut tauri::App) {
+pub fn init_tenchi_ui(app: &mut tauri::App, license_store: std::sync::Arc<tench_license_store::LicenseStore>) {
     let (dialog_tx, dialog_rx) = mpsc::channel();
     set_dialog_sender(dialog_tx);
 
@@ -45,10 +134,11 @@ pub fn init_tenchi_ui(app: &mut tauri::App) {
     tench_ui::platform::init_tauri_ui(
         app,
         tench_ui::platform::TauriUiOptions::default(),
-        |backend, _app| {
+        move |backend, _app| {
             let mut docs_app = ui::DocsApp::new();
             docs_app.set_app_handle(app_handle.clone());
             docs_app.set_dialog_receiver(dialog_rx);
+            docs_app.set_license_store(license_store.clone());
             backend.set_root(docs_app);
         },
     );
@@ -146,7 +236,8 @@ pub fn run() {
             commands::license_release,
         ])
         .setup(move |app| {
-            crate::init_tenchi_ui(app);
+            crate::init_tenchi_ui(app, license_store.clone());
+            crate::spawn_update_scheduler(app.handle().clone(), license_store.clone(), "docs");
             Ok(())
         })
         .run(tauri::generate_context!())

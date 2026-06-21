@@ -197,7 +197,13 @@ impl Widget for DocsApp {
     }
 
     fn automation_children(&self, state: &WidgetState) -> Vec<UiAutomationNode> {
-        automation::docs_automation_nodes(&self.state, state.size, state.id.to_raw())
+        let mut nodes =
+            automation::docs_automation_nodes(&self.state, state.size, state.id.to_raw());
+        if let Some(store) = &self.license_store {
+            let next_id = nodes.last().map(|n| n.id).unwrap_or(0).saturating_add(1);
+            automation::push_license_nodes(&mut nodes, next_id, store, "docs");
+        }
+        nodes
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

@@ -3,6 +3,7 @@ mod modal_nodes;
 use modal_nodes::push_docs_modal_nodes;
 
 use super::*;
+pub(crate) use super::automation_license::push_license_nodes;
 
 pub(crate) fn docs_automation_nodes(
     state: &DocsState,

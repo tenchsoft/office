@@ -1,4 +1,5 @@
 use super::*;
+pub(crate) use super::automation_license::push_license_nodes;
 
 pub(crate) fn slides_automation_nodes(
     slides: &SlidesState,

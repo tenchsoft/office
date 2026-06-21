@@ -1,6 +1,7 @@
 //! Slides UI: native presentation editor widget.
 
 mod automation;
+mod automation_license;
 mod canvas;
 mod filmstrip;
 pub mod modal;
@@ -37,6 +38,10 @@ pub struct SlidesApp {
     app_handle: Option<tauri::AppHandle>,
     /// Receiver for async dialog results.
     dialog_rx: Option<std::sync::mpsc::Receiver<DialogResult>>,
+    /// Encrypted license credential store. Read by automation nodes so UI
+    /// tests can verify activation state without going through the Tauri
+    /// command layer.
+    license_store: Option<std::sync::Arc<tench_license_store::LicenseStore>>,
 }
 
 impl Default for SlidesApp {
@@ -51,6 +56,7 @@ impl SlidesApp {
             state: SlidesState::new(),
             app_handle: None,
             dialog_rx: None,
+            license_store: None,
         }
     }
 
@@ -62,6 +68,15 @@ impl SlidesApp {
     /// Set the dialog result receiver.
     pub fn set_dialog_receiver(&mut self, rx: std::sync::mpsc::Receiver<DialogResult>) {
         self.dialog_rx = Some(rx);
+    }
+
+    /// Set the license credential store. After this is called, automation
+    /// nodes `slides.license.*` will be emitted with the current state.
+    pub fn set_license_store(
+        &mut self,
+        store: std::sync::Arc<tench_license_store::LicenseStore>,
+    ) {
+        self.license_store = Some(store);
     }
 
     pub fn state(&self) -> &SlidesState {

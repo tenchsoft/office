@@ -3,6 +3,7 @@
 mod automation;
 mod automation_dropdown;
 mod automation_helpers;
+mod automation_license;
 mod automation_modals;
 mod automation_popups;
 mod chrome;
@@ -87,6 +88,10 @@ pub struct KodocsApp {
     app_handle: Option<tauri::AppHandle>,
     /// Receiver for async dialog results.
     dialog_rx: Option<std::sync::mpsc::Receiver<DialogResult>>,
+    /// Encrypted license credential store. Read by automation nodes so UI
+    /// tests can verify activation state without going through the Tauri
+    /// command layer.
+    license_store: Option<std::sync::Arc<tench_license_store::LicenseStore>>,
 }
 
 impl Default for KodocsApp {
@@ -107,6 +112,7 @@ impl KodocsApp {
             drag_start: None,
             app_handle: None,
             dialog_rx: None,
+            license_store: None,
         }
     }
 
@@ -118,6 +124,15 @@ impl KodocsApp {
     /// Set the dialog result receiver.
     pub fn set_dialog_receiver(&mut self, rx: std::sync::mpsc::Receiver<DialogResult>) {
         self.dialog_rx = Some(rx);
+    }
+
+    /// Set the license credential store. After this is called, automation
+    /// nodes `kodocs.license.*` will be emitted with the current state.
+    pub fn set_license_store(
+        &mut self,
+        store: std::sync::Arc<tench_license_store::LicenseStore>,
+    ) {
+        self.license_store = Some(store);
     }
 
     /// Get a mutable reference to the engine.
