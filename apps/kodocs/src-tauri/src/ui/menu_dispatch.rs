@@ -277,6 +277,52 @@ impl KodocsApp {
                 ));
                 ctx.request_paint();
             }
+            "Activate License" => {
+                self.state.active_modal = None;
+                self.state.license_modal =
+                    Some(crate::ui::state::LicenseModalState::default());
+                self.state.toast = None;
+                ctx.request_paint();
+            }
+            "Generate PC Code" => {
+                self.state.active_modal = None;
+                if let Some(store) = &self.license_store {
+                    let state = store.state();
+                    let meta = serde_json::json!({
+                        "os": std::env::consts::OS,
+                        "hostname": std::env::var("HOSTNAME")
+                            .or_else(|_| std::env::var("COMPUTERNAME"))
+                            .unwrap_or_else(|_| "unknown".into()),
+                        "tench_app": "kodocs",
+                        "tench_ver": env!("CARGO_PKG_VERSION"),
+                    });
+                    match tench_license_store::encode_pc_request_code(&state.device_id, meta) {
+                        Ok(code) => {
+                            self.state.toast = Some((code, 0.0));
+                        }
+                        Err(_) => {
+                            self.state.toast = Some(("Failed to generate PC code".into(), 0.0));
+                        }
+                    }
+                } else {
+                    self.state.toast = Some(("License store unavailable".into(), 0.0));
+                }
+                ctx.request_paint();
+            }
+            "Release Device" => {
+                self.state.active_modal = None;
+                if let Some(store) = &self.license_store {
+                    match tench_update_client::release_license(store) {
+                        Ok(()) => self.state.toast = Some(("Device released".into(), 0.0)),
+                        Err(e) => {
+                            self.state.toast = Some((format!("Release failed: {e}"), 0.0))
+                        }
+                    }
+                } else {
+                    self.state.toast = Some(("License store unavailable".into(), 0.0));
+                }
+                ctx.request_paint();
+            }
             _ => {
                 ctx.request_paint();
             }

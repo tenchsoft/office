@@ -55,6 +55,11 @@ impl KodocsApp {
             return self.handle_link_modal_keyboard(kb);
         }
 
+        // If license modal is open, route keyboard input to it
+        if self.state.license_modal.is_some() {
+            return self.handle_license_modal_keyboard(kb);
+        }
+
         // If find/replace modal is open, route keyboard input to it
         if self.state.find_replace.is_some() {
             return self.handle_find_replace_keyboard(kb, ctx);

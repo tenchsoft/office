@@ -833,3 +833,216 @@ pub fn hit_test_export_formats(size: Size, pos: Point) -> Option<usize> {
     }
     None
 }
+
+// ── License modal ─────────────────────────────────────────────────
+
+/// Geometry of the License activation modal. Centralized so paint,
+/// hit-test, and automation stay in sync.
+pub(super) fn license_modal_rect(size: Size) -> Rect {
+    let modal_w = 420.0;
+    let modal_h = 300.0;
+    Rect::new(
+        size.width / 2.0 - modal_w / 2.0,
+        size.height / 2.0 - modal_h / 2.0,
+        size.width / 2.0 + modal_w / 2.0,
+        size.height / 2.0 + modal_h / 2.0,
+    )
+}
+
+pub(super) fn license_modal_close_rect(modal: Rect) -> Rect {
+    Rect::new(
+        modal.x1 - 86.0,
+        modal.y1 - 44.0,
+        modal.x1 - 16.0,
+        modal.y1 - 16.0,
+    )
+}
+
+pub(super) fn license_modal_activate_rect(modal: Rect) -> Rect {
+    Rect::new(
+        modal.x1 - 170.0,
+        modal.y1 - 44.0,
+        modal.x1 - 94.0,
+        modal.y1 - 16.0,
+    )
+}
+
+pub(super) fn license_modal_generate_rect(modal: Rect) -> Rect {
+    Rect::new(
+        modal.x0 + 16.0,
+        modal.y0 + 170.0,
+        modal.x0 + 176.0,
+        modal.y0 + 198.0,
+    )
+}
+
+pub(super) fn license_modal_release_rect(modal: Rect) -> Rect {
+    Rect::new(
+        modal.x0 + 186.0,
+        modal.y0 + 170.0,
+        modal.x0 + 346.0,
+        modal.y0 + 198.0,
+    )
+}
+
+pub(super) fn license_modal_input_rect(modal: Rect) -> Rect {
+    Rect::new(
+        modal.x0 + 16.0,
+        modal.y0 + 100.0,
+        modal.x1 - 16.0,
+        modal.y0 + 130.0,
+    )
+}
+
+pub(super) fn paint_license_modal(
+    p: &mut Painter<'_>,
+    theme: &Theme,
+    size: Size,
+    license_state: &super::state::LicenseModalState,
+    license_active: bool,
+) {
+    let modal = license_modal_rect(size);
+
+    // Semi-transparent backdrop
+    p.fill_rect(
+        Rect::new(0.0, 0.0, size.width, size.height),
+        Color::rgba8(0, 0, 0, 120),
+    );
+
+    p.fill_rounded_rect(modal, theme.surface, theme.border_radius);
+    p.stroke_rounded_rect(modal, theme.border, 1.0, theme.border_radius);
+
+    // Title
+    p.draw_text(
+        "License",
+        modal.x0 + 16.0,
+        modal.y0 + 28.0,
+        theme.on_surface,
+        theme.font_size,
+        FontWeight::BOLD,
+        false,
+    );
+
+    // Status line
+    let status_label = if license_active {
+        "Status: Active"
+    } else if license_state.busy {
+        "Status: Activating..."
+    } else {
+        "Status: Not activated"
+    };
+    let status_color = if license_active {
+        theme.primary
+    } else {
+        theme.secondary
+    };
+    p.draw_text(
+        status_label,
+        modal.x0 + 16.0,
+        modal.y0 + 56.0,
+        status_color,
+        theme.font_size_small,
+        FontWeight::NORMAL,
+        false,
+    );
+
+    // License key label
+    p.draw_text(
+        "License key:",
+        modal.x0 + 16.0,
+        modal.y0 + 88.0,
+        theme.secondary,
+        theme.font_size_small,
+        FontWeight::NORMAL,
+        false,
+    );
+
+    // License key input field
+    let input_rect = license_modal_input_rect(modal);
+    p.fill_rounded_rect(input_rect, theme.background, 4.0);
+    p.stroke_rounded_rect(input_rect, theme.border, 1.0, 4.0);
+    let display = if license_state.license_key_input.is_empty() {
+        "TENCH-XXXX-XXXX-XXXX-XXXX".to_string()
+    } else {
+        license_state.license_key_input.clone()
+    };
+    let text_color = if license_state.license_key_input.is_empty() {
+        theme.secondary
+    } else {
+        theme.on_surface
+    };
+    p.draw_text(
+        &display,
+        input_rect.x0 + 8.0,
+        input_rect.y0 + 18.0,
+        text_color,
+        theme.font_size_small,
+        FontWeight::NORMAL,
+        false,
+    );
+
+    // Optional status message (error or success)
+    if !license_state.status_message.is_empty() {
+        p.draw_text(
+            &license_state.status_message,
+            modal.x0 + 16.0,
+            modal.y0 + 152.0,
+            theme.primary,
+            theme.font_size_small,
+            FontWeight::NORMAL,
+            false,
+        );
+    }
+
+    // Generate PC Code button
+    let generate_rect = license_modal_generate_rect(modal);
+    p.stroke_rounded_rect(generate_rect, theme.border, 1.0, 4.0);
+    p.draw_text(
+        "Generate PC Code",
+        generate_rect.x0 + 8.0,
+        generate_rect.y0 + 18.0,
+        theme.on_surface,
+        theme.font_size_small,
+        FontWeight::NORMAL,
+        false,
+    );
+
+    // Release Device button
+    let release_rect = license_modal_release_rect(modal);
+    p.stroke_rounded_rect(release_rect, theme.border, 1.0, 4.0);
+    p.draw_text(
+        "Release Device",
+        release_rect.x0 + 8.0,
+        release_rect.y0 + 18.0,
+        theme.on_surface,
+        theme.font_size_small,
+        FontWeight::NORMAL,
+        false,
+    );
+
+    // Activate button
+    let activate_rect = license_modal_activate_rect(modal);
+    p.fill_rounded_rect(activate_rect, theme.primary, 4.0);
+    p.draw_text(
+        "Activate",
+        activate_rect.x0 + 10.0,
+        activate_rect.y0 + 18.0,
+        theme.on_primary,
+        theme.font_size_small,
+        FontWeight::BOLD,
+        false,
+    );
+
+    // Close button
+    let close_rect = license_modal_close_rect(modal);
+    p.stroke_rounded_rect(close_rect, theme.border, 1.0, 4.0);
+    p.draw_text(
+        "Close",
+        close_rect.x0 + 16.0,
+        close_rect.y0 + 18.0,
+        theme.on_surface,
+        theme.font_size_small,
+        FontWeight::NORMAL,
+        false,
+    );
+}

@@ -15,6 +15,16 @@ impl Widget for KodocsApp {
         // Sync maximized flag so the caption buttons paint the correct glyph.
         self.state.window_maximized = ctx.global.window_maximized;
 
+        // Sync license status from the local credential store so the menu
+        // bar's notification label can decide whether to paint.
+        if let Some(store) = &self.license_store {
+            use tench_license_store::LicenseStatus;
+            self.state.license_active = match store.status() {
+                LicenseStatus::Active => true,
+                _ => false,
+            };
+        }
+
         let p = &mut Painter::new(scene);
         let cache = &mut self.text_cache;
         let width = size.width;
@@ -129,6 +139,8 @@ impl Widget for KodocsApp {
             paint_page_setup_dialog(p, cache, size, &self.state);
         } else if let Some(modal) = &self.state.active_modal {
             paint_docs_modal(p, cache, modal, self.state.hovered_menu_item);
+        } else if let Some(lic_state) = &self.state.license_modal {
+            chrome::paint_license_modal(p, cache, size, lic_state, self.state.license_active);
         }
 
         // Context menu

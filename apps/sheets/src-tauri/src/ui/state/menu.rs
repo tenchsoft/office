@@ -121,6 +121,10 @@ pub enum MenuAction {
     PivotTable,
     // Tools
     Settings,
+    // License
+    ActivateLicense,
+    GeneratePcCode,
+    ReleaseDevice,
     // Help
     About,
     Shortcuts,
@@ -236,6 +240,11 @@ pub fn build_menus() -> Vec<Vec<MenuItem>> {
             MenuItem::action("Pivot Table", "", MenuAction::PivotTable),
         ],
         vec![MenuItem::action("Settings", "", MenuAction::Settings)],
+        vec![
+            MenuItem::action("Activate License", "", MenuAction::ActivateLicense),
+            MenuItem::action("Generate PC Code", "", MenuAction::GeneratePcCode),
+            MenuItem::action("Release Device", "", MenuAction::ReleaseDevice),
+        ],
         vec![
             MenuItem::action("About", "", MenuAction::About),
             MenuItem::action("Shortcuts", "", MenuAction::Shortcuts),

@@ -23,6 +23,17 @@ impl Widget for SlidesApp {
         let theme = ctx.theme();
         // Sync maximized flag so the caption buttons paint the correct glyph.
         self.state.window_maximized = ctx.global.window_maximized;
+
+        // Sync license status from the local credential store so the
+        // toolbar's notification label can decide whether to paint.
+        if let Some(store) = &self.license_store {
+            use tench_license_store::LicenseStatus;
+            self.state.license_active = match store.status() {
+                LicenseStatus::Active => true,
+                _ => false,
+            };
+        }
+
         let mut p = Painter::new(scene);
 
         p.fill_background(size, theme.background);
@@ -77,6 +88,8 @@ impl Widget for SlidesApp {
 
         if let Some(modal) = &self.state.active_modal {
             paint_modal(&mut p, theme, size, modal);
+        } else if let Some(lic_state) = &self.state.license_modal {
+            modal::paint_license_modal(&mut p, theme, size, lic_state, self.state.license_active);
         }
         if let Some(toast) = &self.state.toast {
             paint_slides_toast(&mut p, theme, size, toast);
@@ -124,6 +137,15 @@ impl Widget for SlidesApp {
                 if self.state.interaction.mode == DragMode::Pan {
                     self.state.interaction.mode = DragMode::None;
                 }
+                ctx.request_paint();
+            }
+            return;
+        }
+
+        // If license modal is open, route keyboard input to it.
+        if self.state.license_modal.is_some() {
+            let changed = self.handle_license_modal_keyboard(kb);
+            if changed {
                 ctx.request_paint();
             }
             return;

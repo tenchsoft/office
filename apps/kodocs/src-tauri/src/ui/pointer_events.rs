@@ -31,6 +31,23 @@ impl KodocsApp {
                         }
                         return;
                     }
+                    // Notification label (between 도움말 and title pill). Only
+                    // hot when the label is currently visible.
+                    if crate::ui::menu_bar::notification_label_message(&self.state).is_some() {
+                        let label_rect = crate::ui::menu_bar::notification_label_rect(
+                            Rect::new(0.0, 0.0, win_w, MENU_BAR_H),
+                        );
+                        if label_rect.contains(e.pos) {
+                            // Open pricing page in default browser via shell plugin.
+                            if let Some(handle) = &self.app_handle {
+                                #[allow(deprecated)]
+                                use tauri_plugin_shell::ShellExt;
+                                #[allow(deprecated)]
+                                let _ = handle.shell().open("https://tenchsoft.com/pricing", None);
+                            }
+                            return;
+                        }
+                    }
                     if let Some(menu_name) = menu_at(x) {
                         self.state.active_modal = Some(menu_name.to_string());
                         ctx.request_paint();
@@ -131,6 +148,57 @@ impl KodocsApp {
                     self.state.active_modal = None;
                     ctx.request_paint();
                     return;
+                }
+
+                // License modal click handling (Close and Activate buttons).
+                if self.state.license_modal.is_some() {
+                    let size = Size::new(
+                        self.state.last_window_size.0,
+                        self.state.last_window_size.1,
+                    );
+                    let modal = crate::ui::chrome::license_modal_rect(size);
+                    let close_rect = crate::ui::chrome::license_modal_close_rect(modal);
+                    if close_rect.contains(e.pos) {
+                        self.state.license_modal = None;
+                        ctx.request_paint();
+                        return;
+                    }
+                    let activate_rect = crate::ui::chrome::license_modal_activate_rect(modal);
+                    if activate_rect.contains(e.pos) {
+                        if let Some(store) = self.license_store.clone() {
+                            let key = self
+                                .state
+                                .license_modal
+                                .as_ref()
+                                .map(|m| m.license_key_input.clone())
+                                .unwrap_or_default();
+                            if !key.is_empty() {
+                                match tench_update_client::activate_license(
+                                    &store,
+                                    None,
+                                    &key,
+                                    "kodocs",
+                                    env!("CARGO_PKG_VERSION"),
+                                ) {
+                                    Ok(()) => {
+                                        if let Some(m) = &mut self.state.license_modal {
+                                            m.status_message = "Activated".into();
+                                            m.busy = false;
+                                        }
+                                    }
+                                    Err(err) => {
+                                        if let Some(m) = &mut self.state.license_modal {
+                                            m.status_message =
+                                                format!("Activation failed: {err}");
+                                            m.busy = false;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        ctx.request_paint();
+                        return;
+                    }
                 }
 
                 if self.handle_hanja_popup_click(ctx, x, y) {

@@ -209,6 +209,45 @@ impl SheetsApp {
                 self.state.open_modal(state::ModalType::Shortcuts);
                 true
             }
+            MenuAction::ActivateLicense => {
+                self.state.license_modal = Some(state::LicenseModalState::default());
+                true
+            }
+            MenuAction::GeneratePcCode => {
+                if let Some(store) = &self.license_store {
+                    let lic_state = store.state();
+                    let meta = serde_json::json!({
+                        "os": std::env::consts::OS,
+                        "hostname": std::env::var("HOSTNAME")
+                            .or_else(|_| std::env::var("COMPUTERNAME"))
+                            .unwrap_or_else(|_| "unknown".into()),
+                        "tench_app": "sheets",
+                        "tench_ver": env!("CARGO_PKG_VERSION"),
+                    });
+                    match tench_license_store::encode_pc_request_code(&lic_state.device_id, meta) {
+                        Ok(code) => self.state.toast = Some((code, Instant::now())),
+                        Err(_) => {
+                            self.state.toast = Some(("Failed to generate PC code".into(), Instant::now()))
+                        }
+                    }
+                } else {
+                    self.state.toast = Some(("License store unavailable".into(), Instant::now()));
+                }
+                true
+            }
+            MenuAction::ReleaseDevice => {
+                if let Some(store) = &self.license_store {
+                    match tench_update_client::release_license(store) {
+                        Ok(()) => self.state.toast = Some(("Device released".into(), Instant::now())),
+                        Err(e) => {
+                            self.state.toast = Some((format!("Release failed: {e}"), Instant::now()))
+                        }
+                    }
+                } else {
+                    self.state.toast = Some(("License store unavailable".into(), Instant::now()));
+                }
+                true
+            }
             MenuAction::None => false,
         }
     }

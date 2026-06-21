@@ -169,6 +169,9 @@ impl SheetsState {
             sessions: HashMap::new(),
             window_maximized: false,
             window_control_hovered: None,
+            license_active: false,
+            update_available: false,
+            license_modal: None,
         }
         .with_recalculated_status()
     }

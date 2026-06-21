@@ -87,6 +87,67 @@ impl SheetsApp {
         }
     }
 
+    /// Handle keyboard input for the License activation modal.
+    /// - Escape → close
+    /// - Enter → trigger activation
+    /// - Backspace → delete last char
+    /// - Character (printable) → append (uppercased; license keys are case-insensitive)
+    pub(crate) fn handle_license_modal_keyboard(
+        &mut self,
+        kb: &tench_ui::core::events::KeyboardEvent,
+    ) -> bool {
+        match &kb.logical_key {
+            LogicalKey::Named(NamedKey::Escape) => {
+                self.state.license_modal = None;
+                true
+            }
+            LogicalKey::Named(NamedKey::Enter) => {
+                if let Some(store) = self.license_store.clone() {
+                    let key = self
+                        .state
+                        .license_modal
+                        .as_ref()
+                        .map(|m| m.license_key_input.clone())
+                        .unwrap_or_default();
+                    if !key.is_empty() {
+                        match tench_update_client::activate_license(
+                            &store,
+                            None,
+                            &key,
+                            "sheets",
+                            env!("CARGO_PKG_VERSION"),
+                        ) {
+                            Ok(()) => {
+                                if let Some(m) = &mut self.state.license_modal {
+                                    m.status_message = "Activated".into();
+                                }
+                            }
+                            Err(err) => {
+                                if let Some(m) = &mut self.state.license_modal {
+                                    m.status_message = format!("Activation failed: {err}");
+                                }
+                            }
+                        }
+                    }
+                }
+                true
+            }
+            LogicalKey::Named(NamedKey::Backspace) => {
+                if let Some(m) = &mut self.state.license_modal {
+                    m.license_key_input.pop();
+                }
+                true
+            }
+            LogicalKey::Character(c) => {
+                if let Some(m) = &mut self.state.license_modal {
+                    m.license_key_input.push_str(&c.to_uppercase());
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
     /// Handle main keyboard input (not editing, not in any dialog).
     pub(crate) fn handle_main_key(
         &mut self,

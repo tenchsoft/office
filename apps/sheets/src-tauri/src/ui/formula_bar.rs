@@ -1,9 +1,9 @@
-use super::state::{MenuAction, MenuItem, SheetsState};
+use super::state::{LicenseModalState, MenuAction, MenuItem, SheetsState};
 use tench_ui::parley::FontWeight;
 use tench_ui::prelude::*;
 
 pub(crate) const MENU_NAMES: &[&str] = &[
-    "File", "Edit", "View", "Insert", "Format", "Data", "Tools", "Help",
+    "File", "Edit", "View", "Insert", "Format", "Data", "Tools", "License", "Help",
 ];
 pub(crate) const MENU_BAR_H: f64 = 28.0;
 pub(crate) const MENU_ITEM_H: f64 = 24.0;
@@ -93,6 +93,22 @@ pub fn paint_menu_bar(
             false,
         );
         x += item_w;
+    }
+    // Notification label — only painted when the license is not active.
+    // Two messages cycle every 5 seconds when an update is also pending.
+    // Click handling lives in events/pointer.rs (looks up the same rect via
+    // notification_label_rect).
+    if let Some(msg) = notification_label_message(state) {
+        let label_rect = notification_label_rect(top);
+        p.draw_text(
+            msg,
+            label_rect.x0,
+            top + 18.0,
+            theme.primary,
+            theme.font_size_small,
+            FontWeight::BOLD,
+            false,
+        );
     }
     p.draw_text(
         &state.workbook_name,
@@ -383,4 +399,205 @@ pub fn hover_dropdown_item(
         item_y += MENU_ITEM_H;
     }
     None
+}
+
+/// Returns the message to display in the notification label, or None if the
+/// label should be hidden (license is active).
+///
+/// Behavior matches the spec:
+/// - license unauthenticated + no update available: fixed "$1/month" message
+/// - license unauthenticated + update available: 2-message cycle, 5s each
+/// - license authenticated: hidden
+pub(crate) fn notification_label_message(state: &SheetsState) -> Option<&'static str> {
+    if state.license_active {
+        return None;
+    }
+    if state.update_available {
+        // Cycle every 5 seconds.
+        let cycle = (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+            / 5)
+            % 2;
+        if cycle == 0 {
+            Some("신규 업데이트 있음")
+        } else {
+            Some("월 $1 로 라이선스 활성화 가능")
+        }
+    } else {
+        Some("월 $1 로 라이선스 활성화 가능")
+    }
+}
+
+/// Geometry of the notification label inside the menu bar. `top` is the
+/// menu bar's y offset (DOC_TAB_H). Used by both the painter and the click
+/// handler so they stay in sync.
+pub(crate) fn notification_label_rect(top: f64) -> Rect {
+    // Park the label just to the right of the last menu entry. Menus start
+    // at MENU_PAD_X and each is 54px wide.
+    let label_x = MENU_PAD_X + MENU_NAMES.len() as f64 * 54.0 + 8.0;
+    Rect::new(label_x, top, label_x + 220.0, top + MENU_BAR_H)
+}
+
+/// Geometry of the License activation modal. Centralized so paint, hit-test,
+/// and automation stay in sync.
+pub(crate) fn license_modal_rect(size: Size) -> Rect {
+    let modal_w = 420.0;
+    let modal_h = 220.0;
+    Rect::new(
+        size.width / 2.0 - modal_w / 2.0,
+        size.height / 2.0 - modal_h / 2.0,
+        size.width / 2.0 + modal_w / 2.0,
+        size.height / 2.0 + modal_h / 2.0,
+    )
+}
+
+pub(crate) fn license_modal_close_rect(modal: Rect) -> Rect {
+    Rect::new(
+        modal.x1 - 86.0,
+        modal.y1 - 44.0,
+        modal.x1 - 16.0,
+        modal.y1 - 16.0,
+    )
+}
+
+pub(crate) fn license_modal_activate_rect(modal: Rect) -> Rect {
+    Rect::new(
+        modal.x1 - 170.0,
+        modal.y1 - 44.0,
+        modal.x1 - 94.0,
+        modal.y1 - 16.0,
+    )
+}
+
+pub(crate) fn license_modal_input_rect(modal: Rect) -> Rect {
+    Rect::new(
+        modal.x0 + 16.0,
+        modal.y0 + 100.0,
+        modal.x1 - 16.0,
+        modal.y0 + 130.0,
+    )
+}
+
+pub(crate) fn paint_license_modal(
+    p: &mut Painter<'_>,
+    theme: &Theme,
+    size: Size,
+    license_state: &LicenseModalState,
+    license_active: bool,
+) {
+    let modal = license_modal_rect(size);
+
+    // Semi-transparent backdrop
+    p.fill_rect(
+        Rect::new(0.0, 0.0, size.width, size.height),
+        Color::rgba8(0, 0, 0, 100),
+    );
+
+    p.fill_rounded_rect(modal, theme.surface, 6.0);
+    p.stroke_rounded_rect(modal, theme.border, 1.0, 6.0);
+
+    // Title
+    p.draw_text(
+        "License",
+        modal.x0 + 16.0,
+        modal.y0 + 28.0,
+        theme.on_surface,
+        14.0,
+        FontWeight::BOLD,
+        false,
+    );
+
+    // Status line
+    let (status_label, status_color) = if license_active {
+        ("Status: Active", theme.primary)
+    } else if license_state.busy {
+        ("Status: Activating...", theme.secondary)
+    } else {
+        ("Status: Not activated", theme.secondary)
+    };
+    p.draw_text(
+        status_label,
+        modal.x0 + 16.0,
+        modal.y0 + 56.0,
+        status_color,
+        12.0,
+        FontWeight::NORMAL,
+        false,
+    );
+
+    // License key label
+    p.draw_text(
+        "License key:",
+        modal.x0 + 16.0,
+        modal.y0 + 88.0,
+        theme.secondary,
+        11.0,
+        FontWeight::NORMAL,
+        false,
+    );
+
+    // License key input field
+    let input_rect = license_modal_input_rect(modal);
+    p.fill_rounded_rect(input_rect, theme.background, 4.0);
+    p.stroke_rounded_rect(input_rect, theme.border, 1.0, 4.0);
+    let display = if license_state.license_key_input.is_empty() {
+        "TENCH-XXXX-XXXX-XXXX-XXXX".to_string()
+    } else {
+        license_state.license_key_input.clone()
+    };
+    let text_color = if license_state.license_key_input.is_empty() {
+        theme.secondary
+    } else {
+        theme.on_surface
+    };
+    p.draw_text(
+        &display,
+        input_rect.x0 + 8.0,
+        input_rect.y0 + 18.0,
+        text_color,
+        11.0,
+        FontWeight::NORMAL,
+        false,
+    );
+
+    // Optional status message (error or success)
+    if !license_state.status_message.is_empty() {
+        p.draw_text(
+            &license_state.status_message,
+            modal.x0 + 16.0,
+            modal.y0 + 152.0,
+            theme.primary,
+            11.0,
+            FontWeight::NORMAL,
+            false,
+        );
+    }
+
+    // Activate button
+    let activate_rect = license_modal_activate_rect(modal);
+    p.fill_rounded_rect(activate_rect, theme.primary, 4.0);
+    p.draw_text(
+        "Activate",
+        activate_rect.x0 + 22.0,
+        activate_rect.y0 + 18.0,
+        Color::WHITE,
+        11.0,
+        FontWeight::BOLD,
+        false,
+    );
+
+    // Close button
+    let close_rect = license_modal_close_rect(modal);
+    p.stroke_rounded_rect(close_rect, theme.border, 1.0, 4.0);
+    p.draw_text(
+        "Close",
+        close_rect.x0 + 22.0,
+        close_rect.y0 + 18.0,
+        theme.on_surface,
+        11.0,
+        FontWeight::NORMAL,
+        false,
+    );
 }

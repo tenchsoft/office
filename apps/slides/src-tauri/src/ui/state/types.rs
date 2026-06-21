@@ -344,3 +344,18 @@ pub enum Alignment {
     DistributeH,
     DistributeV,
 }
+
+// ── License modal state ───────────────────────────────────────────
+
+/// State for the License activation modal (License toolbar button).
+#[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
+pub struct LicenseModalState {
+    /// Current text in the license key input field.
+    pub license_key_input: String,
+    /// Last status message shown below the input ("", "Activating...",
+    /// "Activated", or an error string).
+    pub status_message: String,
+    /// True while an activation request is in flight.
+    pub busy: bool,
+}

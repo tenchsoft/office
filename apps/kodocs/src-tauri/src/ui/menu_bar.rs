@@ -4,12 +4,21 @@ use tench_ui::prelude::*;
 use tench_ui::render::TextCache;
 
 /// Korean menu bar items in order.
-const MENU_NAMES: &[&str] = &["파일", "편집", "보기", "삽입", "서식", "도구", "도움말"];
+const MENU_NAMES: &[&str] = &[
+    "파일",
+    "편집",
+    "보기",
+    "삽입",
+    "서식",
+    "도구",
+    "라이선스",
+    "도움말",
+];
 
 /// Width for each menu item (Korean text is wider than English).
 fn menu_width(name: &str) -> f64 {
     match name {
-        "삽입" | "서식" | "도움말" => 50.0,
+        "삽입" | "서식" | "도움말" | "라이선스" => 50.0,
         _ => 42.0,
     }
 }
@@ -34,6 +43,23 @@ pub fn paint_menu_bar(p: &mut Painter<'_>, cache: &mut TextCache, rect: Rect, st
     }
     // Right-side chrome content is shifted left of the caption button zone.
     let content_right = rect.x1 - WINDOW_CONTROLS_W;
+    // Update notification label — only painted when the license is not
+    // active. Two messages cycle every 5 seconds. Click handling lives in
+    // pointer_events.rs (looks up the same rect via notification_label_rect).
+    if let Some(msg) = notification_label_message(state) {
+        let label_rect = notification_label_rect(rect);
+        p.draw_text_cached(
+            cache,
+            msg,
+            label_rect.x0,
+            y,
+            c_accent(),
+            11.0,
+            FontWeight::BOLD,
+            false,
+            false,
+        );
+    }
     // Use real document title
     p.draw_text_cached(
         cache,
@@ -83,4 +109,43 @@ pub fn paint_menu_bar(p: &mut Painter<'_>, cache: &mut TextCache, rect: Rect, st
         state.window_maximized,
         state.window_control_hovered,
     );
+}
+
+/// Returns the message to display in the notification label, or None if the
+/// label should be hidden (license is active).
+///
+/// Behavior matches the spec:
+/// - license unauthenticated + no update available: fixed "$1/month" message
+/// - license unauthenticated + update available: 2-message cycle, 5s each
+/// - license authenticated: hidden
+pub(super) fn notification_label_message(state: &KodocsState) -> Option<&'static str> {
+    if state.license_active {
+        return None;
+    }
+    if state.update_available {
+        // Cycle every 5 seconds.
+        let cycle = (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+            / 5)
+            % 2;
+        if cycle == 0 {
+            Some("신규 업데이트 있음")
+        } else {
+            Some("월 $1 로 라이선스 활성화 가능")
+        }
+    } else {
+        Some("월 $1 로 라이선스 활성화 가능")
+    }
+}
+
+/// Geometry of the notification label inside the menu bar rect. Used by both
+/// the painter and the click handler so they stay in sync.
+pub(super) fn notification_label_rect(menu_rect: Rect) -> Rect {
+    // Park the label just to the right of the "도움말" menu entry.
+    // Menu entries start at menu_rect.x0 + 12 and use 42-50px each. With the
+    // new "라이선스" entry added (50px), 도움말 ends around x0 + 380.
+    let label_x = menu_rect.x0 + 392.0;
+    Rect::new(label_x, menu_rect.y0, label_x + 220.0, menu_rect.y1)
 }

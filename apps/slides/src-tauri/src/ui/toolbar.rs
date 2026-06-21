@@ -14,6 +14,7 @@ pub enum ToolbarAction {
     InsertShape,
     InsertImage,
     TogglePresentation,
+    License,
 }
 
 /// A single item in the toolbar layout.
@@ -66,6 +67,11 @@ fn toolbar_items() -> Vec<ToolbarItemKind> {
             label: "Play",
             action: ToolbarAction::TogglePresentation,
         },
+        ToolbarItemKind::Separator,
+        ToolbarItemKind::Button {
+            label: "License",
+            action: ToolbarAction::License,
+        },
     ]
 }
 
@@ -110,6 +116,21 @@ pub fn paint_toolbar(state: &SlidesState, p: &mut Painter<'_>, theme: &Theme, re
             false,
         );
     }
+    // Notification label — only painted when the license is not active.
+    // Click handling lives in mod.rs (looks up the same rect via
+    // notification_label_rect).
+    if let Some(msg) = notification_label_message(state) {
+        let label_rect = notification_label_rect(rect);
+        p.draw_text(
+            msg,
+            label_rect.x0,
+            rect.y0 + 22.0,
+            theme.primary,
+            theme.font_size_small,
+            FontWeight::BOLD,
+            false,
+        );
+    }
     p.draw_text(
         &format!(
             "{} slides | {}{} | {:.0}%",
@@ -142,4 +163,42 @@ pub fn paint_toolbar(state: &SlidesState, p: &mut Painter<'_>, theme: &Theme, re
         FontWeight::NORMAL,
         false,
     );
+}
+
+/// Returns the message to display in the notification label, or None if the
+/// label should be hidden (license is active).
+///
+/// Behavior matches the spec:
+/// - license unauthenticated + no update available: fixed "$1/month" message
+/// - license unauthenticated + update available: 2-message cycle, 5s each
+/// - license authenticated: hidden
+pub(super) fn notification_label_message(state: &SlidesState) -> Option<&'static str> {
+    if state.license_active {
+        return None;
+    }
+    if state.update_available {
+        let cycle = (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+            / 5)
+            % 2;
+        if cycle == 0 {
+            Some("신규 업데이트 있음")
+        } else {
+            Some("월 $1 로 라이선스 활성화 가능")
+        }
+    } else {
+        Some("월 $1 로 라이선스 활성화 가능")
+    }
+}
+
+/// Geometry of the notification label inside the toolbar rect. Used by both
+/// the painter and the click handler so they stay in sync.
+pub(super) fn notification_label_rect(toolbar_rect: Rect) -> Rect {
+    // Park the label just to the left of the slide-count info text.
+    // paint_toolbar draws slide count at rect.x1 - 420.
+    let label_w = 220.0;
+    let label_x = toolbar_rect.x1 - 660.0;
+    Rect::new(label_x, toolbar_rect.y0, label_x + label_w, toolbar_rect.y1)
 }

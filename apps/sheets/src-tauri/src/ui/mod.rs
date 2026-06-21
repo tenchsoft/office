@@ -36,9 +36,10 @@ use dialogs2::paint_move_sheet_dialog;
 use dialogs2::paint_pivot_table_dialog;
 use dialogs2::paint_tab_color_picker;
 use formula_bar::{
-    dropdown_contains, hit_dropdown, hit_menu_bar, hover_dropdown_item, paint_dropdown_menu,
-    paint_formula_bar, paint_menu_bar, DROPDOWN_W, MENU_BAR_H, MENU_ITEM_H, MENU_NAMES, MENU_PAD_X,
-    MENU_PAD_Y,
+    dropdown_contains, hit_dropdown, hit_menu_bar, hover_dropdown_item, license_modal_activate_rect,
+    license_modal_close_rect, license_modal_rect, notification_label_message, notification_label_rect,
+    paint_dropdown_menu, paint_formula_bar, paint_license_modal, paint_menu_bar, DROPDOWN_W, MENU_BAR_H,
+    MENU_ITEM_H, MENU_NAMES, MENU_PAD_X, MENU_PAD_Y,
 };
 use grid::CellRenderCache;
 use grid::{
@@ -85,6 +86,9 @@ pub struct SheetsApp {
     #[allow(dead_code)] // ImageCache will be used for cell inline images in a future phase.
     image_cache: ImageCache,
     zoom_slider_dragging: bool,
+    /// Tauri AppHandle for native integrations (e.g. opening URLs via the
+    /// shell plugin from the license notification label).
+    app_handle: Option<tauri::AppHandle>,
     /// Encrypted license credential store. Read by automation nodes so UI
     /// tests can verify activation state without going through the Tauri
     /// command layer.
@@ -106,8 +110,14 @@ impl SheetsApp {
             text_cache: TextCache::new(),
             image_cache: ImageCache::default_capacity(),
             zoom_slider_dragging: false,
+            app_handle: None,
             license_store: None,
         }
+    }
+
+    /// Set the Tauri AppHandle for native integrations.
+    pub fn set_app_handle(&mut self, handle: tauri::AppHandle) {
+        self.app_handle = Some(handle);
     }
 
     /// Set the license credential store. After this is called, automation

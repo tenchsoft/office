@@ -85,6 +85,17 @@ pub struct SlidesState {
     pub window_maximized: bool,
     /// Caption button currently under the pointer, if any (hover feedback).
     pub window_control_hovered: Option<tench_ui::WindowControl>,
+    /// License: true when the local store has a valid, non-expired
+    /// device_token. The toolbar's notification label hides when this is
+    /// true. Synced from LicenseStore on each frame.
+    pub license_active: bool,
+    /// License: true when the update scheduler has seen a newer manifest
+    /// version than the running binary. The notification label cycles two
+    /// messages when both `license_active == false` and this is true.
+    pub update_available: bool,
+    /// License modal state — opens from the License toolbar button, hosts
+    /// the license_key input field and shows status text.
+    pub license_modal: Option<LicenseModalState>,
 }
 
 #[derive(Debug, Clone)]
@@ -144,6 +155,9 @@ impl SlidesState {
             space_held: false,
             window_maximized: false,
             window_control_hovered: None,
+            license_active: false,
+            update_available: false,
+            license_modal: None,
         }
     }
 

@@ -30,6 +30,16 @@ impl Widget for SheetsApp {
         let theme = ctx.theme();
         // Sync maximized flag so the caption buttons paint the correct glyph.
         self.state.window_maximized = ctx.global.window_maximized;
+
+        // Sync license status from the local credential store so the menu
+        // bar's notification label can decide whether to paint.
+        if let Some(store) = &self.license_store {
+            use tench_license_store::LicenseStatus;
+            self.state.license_active = match store.status() {
+                LicenseStatus::Active => true,
+                _ => false,
+            };
+        }
         let mut p = Painter::new(scene);
         let chart_w = if self.state.show_chart_panel {
             self.state.chart_panel_width
@@ -280,6 +290,10 @@ impl Widget for SheetsApp {
             );
             paint_move_sheet_dialog(&mut p, theme, size, &self.state);
         }
+        // License activation modal
+        if let Some(lic_state) = &self.state.license_modal {
+            paint_license_modal(&mut p, theme, size, lic_state, self.state.license_active);
+        }
         // Toast auto-dismiss after 3 seconds
         if let Some((_, set_at)) = &self.state.toast {
             if set_at.elapsed().as_secs() >= 3 {
@@ -314,6 +328,15 @@ impl Widget for SheetsApp {
             return;
         };
         if !kb.is_pressed {
+            return;
+        }
+
+        // If license modal is open, route keyboard input to it
+        if self.state.license_modal.is_some() {
+            let changed = self.handle_license_modal_keyboard(kb);
+            if changed {
+                ctx.request_paint();
+            }
             return;
         }
 

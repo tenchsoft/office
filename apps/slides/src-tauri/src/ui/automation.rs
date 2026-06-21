@@ -185,6 +185,7 @@ fn slides_toolbar_debug_id(action: ToolbarAction) -> &'static str {
         ToolbarAction::InsertShape => "slides.toolbar.shape",
         ToolbarAction::InsertImage => "slides.toolbar.image",
         ToolbarAction::TogglePresentation => "slides.toolbar.play",
+        ToolbarAction::License => "slides.toolbar.license",
     }
 }
 

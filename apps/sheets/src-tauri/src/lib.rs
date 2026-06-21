@@ -162,11 +162,13 @@ fn run_one_update_check(
 
 /// Initialize tench-ui rendering on a Tauri window.
 pub fn init_tenchi_ui(app: &mut tauri::App, license_store: std::sync::Arc<tench_license_store::LicenseStore>) {
+    let app_handle = app.handle().clone();
     tench_ui::platform::init_tauri_ui(
         app,
         tench_ui::platform::TauriUiOptions::default(),
         move |backend, _app| {
             let mut sheets_app = ui::SheetsApp::new();
+            sheets_app.set_app_handle(app_handle.clone());
             sheets_app.set_license_store(license_store.clone());
             backend.set_root(sheets_app);
         },

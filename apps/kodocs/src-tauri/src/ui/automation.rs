@@ -12,7 +12,16 @@ pub(crate) fn kodocs_automation_nodes(
     let height = size.height;
 
     // --- Menu bar buttons ---
-    let menu_names = ["파일", "편집", "보기", "삽입", "서식", "도구", "도움말"];
+    let menu_names = [
+        "파일",
+        "편집",
+        "보기",
+        "삽입",
+        "서식",
+        "도구",
+        "라이선스",
+        "도움말",
+    ];
     let menu_ids = [
         "kodocs.menu.file",
         "kodocs.menu.edit",
@@ -20,12 +29,13 @@ pub(crate) fn kodocs_automation_nodes(
         "kodocs.menu.insert",
         "kodocs.menu.format",
         "kodocs.menu.tools",
+        "kodocs.menu.license",
         "kodocs.menu.help",
     ];
     let mut x = 12.0;
     for (i, name) in menu_names.iter().enumerate() {
         let w = match *name {
-            "삽입" | "서식" | "도움말" => 50.0,
+            "삽입" | "서식" | "도움말" | "라이선스" => 50.0,
             _ => 42.0,
         };
         push_kodocs_node(

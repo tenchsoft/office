@@ -18,7 +18,7 @@ use properties::{
     paint_properties, properties_layout, slider_value_from_click, PropertyAction, SliderKind,
 };
 use state::{DragMode, SlidesState};
-use tench_ui::core::events::ImeEvent;
+use tench_ui::core::events::{ImeEvent, KeyboardEvent};
 use tench_ui::prelude::*;
 use toolbar::{paint_toolbar, toolbar_layout, ToolbarAction};
 
@@ -109,6 +109,25 @@ impl SlidesApp {
                 }
                 return;
             }
+            // Notification label (between toolbar buttons and slide-count
+            // info). Only hot when the label is currently visible.
+            if toolbar::notification_label_message(&self.state).is_some() {
+                let label_rect = toolbar::notification_label_rect(Rect::new(
+                    0.0,
+                    0.0,
+                    size.width,
+                    TOOLBAR_H,
+                ));
+                if label_rect.contains(e.pos) {
+                    if let Some(handle) = &self.app_handle {
+                        #[allow(deprecated)]
+                        use tauri_plugin_shell::ShellExt;
+                        #[allow(deprecated)]
+                        let _ = handle.shell().open("https://tenchsoft.com/pricing", None);
+                    }
+                    return;
+                }
+            }
             let toolbar_rect = Rect::new(0.0, 0.0, size.width, TOOLBAR_H);
             let layout = toolbar_layout(toolbar_rect);
             let mut handled = false;
@@ -143,6 +162,11 @@ impl SlidesApp {
                             }
                             self.state.selected_element = None;
                         }
+                        ToolbarAction::License => {
+                            self.state.active_modal = None;
+                            self.state.license_modal =
+                                Some(state::LicenseModalState::default());
+                        }
                     }
                     handled = true;
                     break;
@@ -154,6 +178,43 @@ impl SlidesApp {
                 // Empty toolbar space: begin a window drag-move.
                 ctx.submit_window_action(WindowAction::StartDrag);
             }
+            return;
+        }
+
+        // License modal click handling (takes priority over other modals).
+        if self.state.license_modal.is_some() {
+            let modal = modal::license_modal_rect(size);
+            // Close button
+            if modal::license_modal_close_rect(modal).contains(e.pos) {
+                self.state.license_modal = None;
+                ctx.request_paint();
+                return;
+            }
+            // Activate button
+            if modal::license_modal_activate_rect(modal).contains(e.pos) {
+                self.activate_license_from_modal();
+                ctx.request_paint();
+                return;
+            }
+            // Generate PC Code button
+            if modal::license_modal_generate_rect(modal).contains(e.pos) {
+                self.generate_pc_code();
+                ctx.request_paint();
+                return;
+            }
+            // Release Device button
+            if modal::license_modal_release_rect(modal).contains(e.pos) {
+                self.release_device();
+                ctx.request_paint();
+                return;
+            }
+            // Click inside modal backdrop but not on a button — don't dismiss.
+            if modal.contains(e.pos) {
+                return;
+            }
+            // Click outside modal — dismiss.
+            self.state.license_modal = None;
+            ctx.request_paint();
             return;
         }
 
@@ -720,6 +781,112 @@ impl SlidesApp {
             }
         }
         ctx.request_paint();
+    }
+
+    // ── License actions ────────────────────────────────────────────
+
+    /// Activate the license using the key currently in the modal input.
+    fn activate_license_from_modal(&mut self) {
+        if let Some(store) = self.license_store.clone() {
+            let key = self
+                .state
+                .license_modal
+                .as_ref()
+                .map(|m| m.license_key_input.clone())
+                .unwrap_or_default();
+            if !key.is_empty() {
+                match tench_update_client::activate_license(
+                    &store,
+                    None,
+                    &key,
+                    "slides",
+                    env!("CARGO_PKG_VERSION"),
+                ) {
+                    Ok(()) => {
+                        if let Some(m) = &mut self.state.license_modal {
+                            m.status_message = "Activated".into();
+                            m.busy = false;
+                        }
+                    }
+                    Err(err) => {
+                        if let Some(m) = &mut self.state.license_modal {
+                            m.status_message = format!("Activation failed: {err}");
+                            m.busy = false;
+                        }
+                    }
+                }
+            }
+        } else {
+            self.state.show_toast("License store unavailable");
+        }
+    }
+
+    /// Generate a PC request code and display it as a toast.
+    fn generate_pc_code(&mut self) {
+        if let Some(store) = &self.license_store {
+            let lic_state = store.state();
+            let meta = serde_json::json!({
+                "os": std::env::consts::OS,
+                "hostname": std::env::var("HOSTNAME")
+                    .or_else(|_| std::env::var("COMPUTERNAME"))
+                    .unwrap_or_else(|_| "unknown".into()),
+                "tench_app": "slides",
+                "tench_ver": env!("CARGO_PKG_VERSION"),
+            });
+            match tench_license_store::encode_pc_request_code(&lic_state.device_id, meta) {
+                Ok(code) => {
+                    self.state.show_toast(&code);
+                }
+                Err(_) => {
+                    self.state.show_toast("Failed to generate PC code");
+                }
+            }
+        } else {
+            self.state.show_toast("License store unavailable");
+        }
+    }
+
+    /// Release the local device license binding.
+    fn release_device(&mut self) {
+        if let Some(store) = self.license_store.clone() {
+            match tench_update_client::release_license(&store) {
+                Ok(()) => self.state.show_toast("Device released"),
+                Err(e) => self.state.show_toast(&format!("Release failed: {e}")),
+            }
+        } else {
+            self.state.show_toast("License store unavailable");
+        }
+    }
+
+    /// Handle keyboard input for the License activation modal.
+    /// - Escape → close
+    /// - Enter → trigger activation
+    /// - Backspace → delete last char
+    /// - Character (printable) → append (uppercased; license keys are case-insensitive)
+    pub(in crate::ui) fn handle_license_modal_keyboard(&mut self, kb: &KeyboardEvent) -> bool {
+        match &kb.logical_key {
+            LogicalKey::Named(NamedKey::Escape) => {
+                self.state.license_modal = None;
+                true
+            }
+            LogicalKey::Named(NamedKey::Enter) => {
+                self.activate_license_from_modal();
+                true
+            }
+            LogicalKey::Named(NamedKey::Backspace) => {
+                if let Some(m) = &mut self.state.license_modal {
+                    m.license_key_input.pop();
+                }
+                true
+            }
+            LogicalKey::Character(c) => {
+                if let Some(m) = &mut self.state.license_modal {
+                    m.license_key_input.push_str(&c.to_uppercase());
+                }
+                true
+            }
+            _ => false,
+        }
     }
 }
 

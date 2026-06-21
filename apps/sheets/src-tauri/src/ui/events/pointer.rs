@@ -47,6 +47,52 @@ impl SheetsApp {
             return;
         }
 
+        // License activation modal — intercept clicks when visible.
+        if self.state.license_modal.is_some() {
+            let modal = license_modal_rect(size);
+            let close_rect = license_modal_close_rect(modal);
+            if close_rect.contains(e.pos) {
+                self.state.license_modal = None;
+                ctx.request_paint();
+                return;
+            }
+            let activate_rect = license_modal_activate_rect(modal);
+            if activate_rect.contains(e.pos) {
+                if let Some(store) = self.license_store.clone() {
+                    let key = self
+                        .state
+                        .license_modal
+                        .as_ref()
+                        .map(|m| m.license_key_input.clone())
+                        .unwrap_or_default();
+                    if !key.is_empty() {
+                        match tench_update_client::activate_license(
+                            &store,
+                            None,
+                            &key,
+                            "sheets",
+                            env!("CARGO_PKG_VERSION"),
+                        ) {
+                            Ok(()) => {
+                                if let Some(m) = &mut self.state.license_modal {
+                                    m.status_message = "Activated".into();
+                                    m.busy = false;
+                                }
+                            }
+                            Err(err) => {
+                                if let Some(m) = &mut self.state.license_modal {
+                                    m.status_message = format!("Activation failed: {err}");
+                                    m.busy = false;
+                                }
+                            }
+                        }
+                    }
+                }
+                ctx.request_paint();
+                return;
+            }
+        }
+
         // 10.4 Page setup dialog — intercept clicks when visible
         if self.state.show_page_setup {
             self.handle_page_setup_click(ctx, e);
@@ -207,6 +253,21 @@ impl SheetsApp {
 
         // Menu bar
         if e.pos.y >= DOC_TAB_H && e.pos.y < DOC_TAB_H + MENU_H {
+            // Notification label (right of the last menu entry). Only hot
+            // when the label is currently visible. Opens the pricing page in
+            // the default browser via the shell plugin.
+            if notification_label_message(&self.state).is_some() {
+                let label_rect = notification_label_rect(DOC_TAB_H);
+                if label_rect.contains(e.pos) {
+                    if let Some(handle) = &self.app_handle {
+                        #[allow(deprecated)]
+                        use tauri_plugin_shell::ShellExt;
+                        #[allow(deprecated)]
+                        let _ = handle.shell().open("https://tenchsoft.com/pricing", None);
+                    }
+                    return;
+                }
+            }
             // Check if a menu name was clicked
             if let Some(menu_idx) = hit_menu_bar(e.pos.x, e.pos.y) {
                 if self.state.menu_state.open_menu == Some(menu_idx) {

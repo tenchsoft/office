@@ -89,6 +89,9 @@ impl KodocsState {
             hovered_tooltip_x: 0.0,
             window_maximized: false,
             window_control_hovered: None,
+            license_active: false,
+            update_available: false,
+            license_modal: None,
         }
     }
 
