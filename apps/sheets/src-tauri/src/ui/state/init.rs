@@ -167,6 +167,8 @@ impl SheetsState {
             move_sheet_target: 0,
             // Phase 8: Document sessions
             sessions: HashMap::new(),
+            window_maximized: false,
+            window_control_hovered: None,
         }
         .with_recalculated_status()
     }

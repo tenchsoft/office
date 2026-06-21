@@ -43,6 +43,7 @@ pub mod toolbar;
 pub mod tree_view;
 pub mod virtual_tree;
 pub mod visual_surface;
+pub mod window_controls;
 pub mod word_counter;
 
 pub use app_grid::{AppEntry, AppGrid};
@@ -101,5 +102,9 @@ pub use visual_surface::{
     visual_surface_frame, visual_surface_hit_test, visual_surface_timeline_position,
     visual_surface_unit_rect, VisualSurface, VisualSurfaceCommand, VisualSurfaceCommandKind,
     VisualSurfaceHit, VisualSurfaceViewport,
+};
+pub use window_controls::{
+    control_rect, paint_window_controls, window_control_at, WindowControl, WINDOW_CONTROLS_W,
+    WINDOW_CONTROL_BTN_W,
 };
 pub use word_counter::WordCounter;

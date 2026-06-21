@@ -49,8 +49,43 @@ pub(crate) fn kodocs_automation_nodes(
             "저장됨"
         },
         "kodocs.save_status",
-        Rect::new(width - 80.0, 8.0, width - 18.0, MENU_BAR_H - 8.0),
+        Rect::new(
+            width - WINDOW_CONTROLS_W - 80.0,
+            8.0,
+            width - WINDOW_CONTROLS_W - 18.0,
+            MENU_BAR_H - 8.0,
+        ),
     );
+
+    // Caption buttons (minimize / maximize-restore / close).
+    for (control, debug_id, label) in [
+        (
+            WindowControl::Minimize,
+            "kodocs.window.minimize",
+            "Minimize",
+        ),
+        (
+            WindowControl::MaximizeRestore,
+            "kodocs.window.maximize",
+            "Maximize",
+        ),
+        (WindowControl::Close, "kodocs.window.close", "Close"),
+    ] {
+        let rect = tench_ui::widgets::control_rect(width, MENU_BAR_H, control);
+        push_kodocs_node(&mut nodes, &mut next_id, "button", label, debug_id, rect);
+        if control == WindowControl::MaximizeRestore {
+            if let Some(node) = nodes.last_mut() {
+                node.value = Some(
+                    if state.window_maximized {
+                        "maximized"
+                    } else {
+                        "restored"
+                    }
+                    .to_string(),
+                );
+            }
+        }
+    }
 
     // --- Toolbar buttons ---
     let toolbar_btn_y = MENU_BAR_H + 8.0;

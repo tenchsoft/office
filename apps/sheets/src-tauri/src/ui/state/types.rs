@@ -176,4 +176,8 @@ pub struct SheetsState {
     pub move_sheet_target: usize,
     // Phase 8: Document sessions
     pub sessions: HashMap<String, DocumentSession>,
+    /// Whether the platform window is currently maximized (caption glyph).
+    pub window_maximized: bool,
+    /// Caption button currently under the pointer, if any (hover feedback).
+    pub window_control_hovered: Option<tench_ui::WindowControl>,
 }

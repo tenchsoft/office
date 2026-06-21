@@ -18,11 +18,26 @@ impl KodocsApp {
 
                 // Check menu bar click
                 if y < MENU_BAR_H {
+                    let win_w = self.state.last_window_size.0;
+                    if let Some(ctrl) = window_control_at(x, y, win_w, MENU_BAR_H) {
+                        match ctrl {
+                            WindowControl::Close => ctx.submit_window_action(WindowAction::Close),
+                            WindowControl::Minimize => {
+                                ctx.submit_window_action(WindowAction::Minimize)
+                            }
+                            WindowControl::MaximizeRestore => {
+                                ctx.submit_window_action(WindowAction::ToggleMaximize)
+                            }
+                        }
+                        return;
+                    }
                     if let Some(menu_name) = menu_at(x) {
                         self.state.active_modal = Some(menu_name.to_string());
                         ctx.request_paint();
                         return;
                     }
+                    // Empty menu bar space: begin a window drag-move.
+                    ctx.submit_window_action(WindowAction::StartDrag);
                     return;
                 }
 
@@ -271,6 +286,14 @@ impl KodocsApp {
             PointerEvent::Move(e) => {
                 let x = e.pos.x;
                 let y = e.pos.y;
+
+                // Track caption button hover for visual feedback.
+                let win_w = self.state.last_window_size.0;
+                let new_hover = window_control_at(x, y, win_w, MENU_BAR_H);
+                if new_hover != self.state.window_control_hovered {
+                    self.state.window_control_hovered = new_hover;
+                    ctx.request_paint();
+                }
 
                 // Handle image resize drag
                 if self.state.image_resize_drag.is_some()

@@ -5,6 +5,7 @@ fn main() {
             width: 1440.0,
             height: 900.0,
             resizable: true,
+            decorations: false,
         },
         |backend| backend.set_root(tench_slides_lib::ui::SlidesApp::new()),
     );

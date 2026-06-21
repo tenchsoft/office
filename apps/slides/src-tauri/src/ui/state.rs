@@ -81,6 +81,10 @@ pub struct SlidesState {
     pub snap_to_grid: bool,
     // Phase 9: space-held for hand-pan
     pub space_held: bool,
+    /// Whether the platform window is currently maximized (caption glyph).
+    pub window_maximized: bool,
+    /// Caption button currently under the pointer, if any (hover feedback).
+    pub window_control_hovered: Option<tench_ui::WindowControl>,
 }
 
 #[derive(Debug, Clone)]
@@ -138,6 +142,8 @@ impl SlidesState {
             grid_size: 20.0,
             snap_to_grid: false,
             space_held: false,
+            window_maximized: false,
+            window_control_hovered: None,
         }
     }
 

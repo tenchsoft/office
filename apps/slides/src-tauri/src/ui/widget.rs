@@ -21,6 +21,8 @@ impl Widget for SlidesApp {
 
         let size = ctx.size();
         let theme = ctx.theme();
+        // Sync maximized flag so the caption buttons paint the correct glyph.
+        self.state.window_maximized = ctx.global.window_maximized;
         let mut p = Painter::new(scene);
 
         p.fill_background(size, theme.background);
@@ -29,6 +31,14 @@ impl Widget for SlidesApp {
             &mut p,
             theme,
             Rect::new(0.0, 0.0, size.width, TOOLBAR_H),
+        );
+        // Caption buttons sit at the top-right of the toolbar header.
+        paint_window_controls(
+            &mut p,
+            size.width,
+            TOOLBAR_H,
+            self.state.window_maximized,
+            self.state.window_control_hovered,
         );
         paint_filmstrip(
             &self.state,

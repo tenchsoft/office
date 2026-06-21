@@ -96,7 +96,7 @@ pub fn paint_menu_bar(
     }
     p.draw_text(
         &state.workbook_name,
-        width - 180.0,
+        width - WINDOW_CONTROLS_W - 180.0,
         top + 18.0,
         theme.secondary,
         theme.font_size_small,

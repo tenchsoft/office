@@ -43,6 +43,20 @@ impl DocsApp {
                 }
 
                 if e.pos.y < MENU_BAR_H {
+                    // Caption buttons (top-right) take priority over menus.
+                    let (win_w, _) = self.state.last_window_size;
+                    if let Some(ctrl) = window_control_at(e.pos.x, e.pos.y, win_w, MENU_BAR_H) {
+                        match ctrl {
+                            WindowControl::Close => ctx.submit_window_action(WindowAction::Close),
+                            WindowControl::Minimize => {
+                                ctx.submit_window_action(WindowAction::Minimize)
+                            }
+                            WindowControl::MaximizeRestore => {
+                                ctx.submit_window_action(WindowAction::ToggleMaximize)
+                            }
+                        }
+                        return;
+                    }
                     if let Some(name) = menu_at(e.pos.x) {
                         self.state.active_modal = Some(name.to_string());
                         self.state.hovered_menu_item = None;
@@ -54,6 +68,9 @@ impl DocsApp {
                         self.state.active_modal = None;
                         self.state.hovered_menu_item = None;
                         ctx.request_paint();
+                    } else {
+                        // Empty menu bar space: begin a window drag-move.
+                        ctx.submit_window_action(WindowAction::StartDrag);
                     }
                     return;
                 }
@@ -832,6 +849,13 @@ impl DocsApp {
                 }
             }
             PointerEvent::Move(e) => {
+                // Track caption button hover for visual feedback.
+                let (win_w, _) = self.state.last_window_size;
+                let new_hover = window_control_at(e.pos.x, e.pos.y, win_w, MENU_BAR_H);
+                if new_hover != self.state.window_control_hovered {
+                    self.state.window_control_hovered = new_hover;
+                    ctx.request_paint();
+                }
                 // Handle image resize drag
                 if self.state.image_resize_drag.is_some()
                     && e.buttons

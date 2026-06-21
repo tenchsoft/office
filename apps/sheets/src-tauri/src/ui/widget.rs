@@ -28,6 +28,8 @@ impl Widget for SheetsApp {
 
         let size = ctx.size();
         let theme = ctx.theme();
+        // Sync maximized flag so the caption buttons paint the correct glyph.
+        self.state.window_maximized = ctx.global.window_maximized;
         let mut p = Painter::new(scene);
         let chart_w = if self.state.show_chart_panel {
             self.state.chart_panel_width
@@ -54,6 +56,15 @@ impl Widget for SheetsApp {
 
         // Menu bar
         paint_menu_bar(&self.state, &mut p, theme, size.width, DOC_TAB_H);
+
+        // Caption buttons span the doc-tab + menu-bar header band.
+        paint_window_controls(
+            &mut p,
+            size.width,
+            DOC_TAB_H + MENU_H,
+            self.state.window_maximized,
+            self.state.window_control_hovered,
+        );
 
         // Formula bar (conditional on toggle)
         if self.state.show_formula_bar {

@@ -12,6 +12,8 @@ impl Widget for DocsApp {
 
         // Store window size for hit-test calculations
         self.state.last_window_size = (size.width, size.height);
+        // Sync maximized flag so the caption buttons paint the correct glyph.
+        self.state.window_maximized = ctx.global.window_maximized;
 
         // Ensure layout cache is warm before rendering
         self.state.ensure_layout_cache();

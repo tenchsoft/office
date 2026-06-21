@@ -176,6 +176,19 @@ impl SheetsApp {
             return;
         }
 
+        // Caption buttons (top-right) span the doc-tab + menu-bar header band.
+        let header_h = DOC_TAB_H + MENU_H;
+        if let Some(ctrl) = window_control_at(e.pos.x, e.pos.y, ctx.state.size.width, header_h) {
+            match ctrl {
+                WindowControl::Close => ctx.submit_window_action(WindowAction::Close),
+                WindowControl::Minimize => ctx.submit_window_action(WindowAction::Minimize),
+                WindowControl::MaximizeRestore => {
+                    ctx.submit_window_action(WindowAction::ToggleMaximize)
+                }
+            }
+            return;
+        }
+
         // Document tabs (topmost area)
         if e.pos.y < DOC_TAB_H {
             if let Some(tab_idx) = hit_doc_tab(e.pos.x, e.pos.y, self.state.doc_tabs.len()) {
@@ -185,6 +198,9 @@ impl SheetsApp {
                     self.state.switch_to_tab(tab_idx);
                 }
                 ctx.request_paint();
+            } else {
+                // Empty doc-tab header space: begin a window drag-move.
+                ctx.submit_window_action(WindowAction::StartDrag);
             }
             return;
         }
@@ -208,6 +224,9 @@ impl SheetsApp {
             if self.state.menu_state.open_menu.is_some() {
                 self.state.menu_state.open_menu = None;
                 ctx.request_paint();
+            } else {
+                // Empty menu bar space: begin a window drag-move.
+                ctx.submit_window_action(WindowAction::StartDrag);
             }
             return;
         }
@@ -519,6 +538,13 @@ impl SheetsApp {
     }
 
     pub(crate) fn handle_pointer_move(&mut self, ctx: &mut EventCtx, e: &PointerMoveEvent) {
+        // Track caption button hover for visual feedback.
+        let header_h = DOC_TAB_H + MENU_H;
+        let new_hover = window_control_at(e.pos.x, e.pos.y, ctx.state.size.width, header_h);
+        if new_hover != self.state.window_control_hovered {
+            self.state.window_control_hovered = new_hover;
+            ctx.request_paint();
+        }
         // Handle zoom slider drag
         if self.zoom_slider_dragging {
             let size = ctx.state.size;

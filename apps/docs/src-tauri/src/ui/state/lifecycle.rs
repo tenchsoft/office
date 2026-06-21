@@ -91,6 +91,8 @@ impl DocsState {
             redo_available: false,
             clipboard_text: String::new(),
             clipboard_node_count: 0,
+            window_maximized: false,
+            window_control_hovered: None,
         }
     }
 

@@ -24,11 +24,13 @@ pub fn paint_menu_bar(p: &mut Painter<'_>, cache: &mut TextCache, rect: Rect, st
             _ => 42.0,
         };
     }
+    // Right-side chrome content is shifted left of the caption button zone.
+    let content_right = rect.x1 - WINDOW_CONTROLS_W;
     // Use real document title instead of hardcoded "Project Proposal"
     p.draw_text_cached(
         cache,
         state.title(),
-        rect.x1 - 230.0,
+        content_right - 230.0,
         y,
         c_text_dim(),
         12.0,
@@ -36,7 +38,12 @@ pub fn paint_menu_bar(p: &mut Painter<'_>, cache: &mut TextCache, rect: Rect, st
         false,
         false,
     );
-    let pill = Rect::new(rect.x1 - 80.0, rect.y0 + 8.0, rect.x1 - 18.0, rect.y1 - 8.0);
+    let pill = Rect::new(
+        content_right - 80.0,
+        rect.y0 + 8.0,
+        content_right - 18.0,
+        rect.y1 - 8.0,
+    );
     p.stroke_rounded_rect(pill, c_separator(), 1.0, 999.0);
     // Use real save status instead of hardcoded "Saved"
     let status_label = if state.is_dirty() { "Unsaved" } else { "Saved" };
@@ -56,5 +63,12 @@ pub fn paint_menu_bar(p: &mut Painter<'_>, cache: &mut TextCache, rect: Rect, st
         Point::new(rect.x1, rect.y1 - 1.0),
         c_separator(),
         1.0,
+    );
+    paint_window_controls(
+        p,
+        rect.x1,
+        rect.height(),
+        state.window_maximized,
+        state.window_control_hovered,
     );
 }

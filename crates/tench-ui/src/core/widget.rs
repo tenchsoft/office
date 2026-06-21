@@ -457,6 +457,17 @@ impl<'a> EventCtx<'a> {
         self.anim_requested = true;
         self.state.needs_paint = true;
     }
+
+    /// Submit a request targeting the platform window (minimize / maximize /
+    /// close / drag). The native backend drains and executes these each event
+    /// pump. In headless tests the actions remain in
+    /// `GlobalState::pending_actions` for inspection via
+    /// `TestHarness::drain_actions`.
+    pub fn submit_window_action(&mut self, action: crate::core::events::WindowAction) {
+        self.global
+            .pending_actions
+            .push((Action::new(action), self.widget_id()));
+    }
 }
 
 /// Context provided during measurement.
@@ -506,6 +517,10 @@ pub struct GlobalState {
     pub pointer_capture: Option<WidgetId>,
     pub hovered_widget: Option<WidgetId>,
     pub pending_actions: Vec<(Action, WidgetId)>,
+    /// Whether the platform window is currently maximized. Updated by the
+    /// native backend each frame; read by widgets to paint the correct
+    /// maximize/restore glyph. Stays `false` in headless tests.
+    pub window_maximized: bool,
 }
 
 impl Default for GlobalState {
@@ -522,6 +537,7 @@ impl GlobalState {
             pointer_capture: None,
             hovered_widget: None,
             pending_actions: Vec::new(),
+            window_maximized: false,
         }
     }
 }

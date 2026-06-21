@@ -19,6 +19,36 @@ pub(crate) fn slides_automation_nodes(
         );
     }
 
+    // Caption buttons (minimize / maximize-restore / close).
+    for (control, debug_id, label) in [
+        (
+            WindowControl::Minimize,
+            "slides.window.minimize",
+            "Minimize",
+        ),
+        (
+            WindowControl::MaximizeRestore,
+            "slides.window.maximize",
+            "Maximize",
+        ),
+        (WindowControl::Close, "slides.window.close", "Close"),
+    ] {
+        let rect = tench_ui::widgets::control_rect(size.width, TOOLBAR_H, control);
+        push_slides_node(&mut nodes, &mut next_id, "button", label, debug_id, rect);
+        if control == WindowControl::MaximizeRestore {
+            if let Some(node) = nodes.last_mut() {
+                node.value = Some(
+                    if slides.window_maximized {
+                        "maximized"
+                    } else {
+                        "restored"
+                    }
+                    .to_string(),
+                );
+            }
+        }
+    }
+
     for (index, slide) in slides.slides.iter().enumerate() {
         let y = TOOLBAR_H + 36.0 + index as f64 * (80.0 + 6.0);
         if y + 80.0 > size.height - NOTES_H {

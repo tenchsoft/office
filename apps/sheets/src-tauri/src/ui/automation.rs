@@ -51,6 +51,37 @@ pub(crate) fn sheets_automation_nodes(
         );
     }
 
+    // Caption buttons (minimize / maximize-restore / close) span the header band.
+    let header_h = DOC_TAB_H + MENU_H;
+    for (control, debug_id, label) in [
+        (
+            WindowControl::Minimize,
+            "sheets.window.minimize",
+            "Minimize",
+        ),
+        (
+            WindowControl::MaximizeRestore,
+            "sheets.window.maximize",
+            "Maximize",
+        ),
+        (WindowControl::Close, "sheets.window.close", "Close"),
+    ] {
+        let rect = tench_ui::widgets::control_rect(size.width, header_h, control);
+        push_sheets_node(&mut nodes, &mut next_id, "button", label, debug_id, rect);
+        if control == WindowControl::MaximizeRestore {
+            if let Some(node) = nodes.last_mut() {
+                node.value = Some(
+                    if sheets.window_maximized {
+                        "maximized"
+                    } else {
+                        "restored"
+                    }
+                    .to_string(),
+                );
+            }
+        }
+    }
+
     if let Some(menu_idx) = sheets.menu_state.open_menu {
         if let Some(items) = sheets.menus.get(menu_idx) {
             let menu_slug = MENU_NAMES

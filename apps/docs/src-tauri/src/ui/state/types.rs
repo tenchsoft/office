@@ -720,4 +720,8 @@ pub struct DocsState {
     pub clipboard_text: String,
     /// Number of TDM nodes in the clipboard content.
     pub clipboard_node_count: usize,
+    /// Whether the platform window is currently maximized (caption glyph).
+    pub window_maximized: bool,
+    /// Caption button currently under the pointer, if any (hover feedback).
+    pub window_control_hovered: Option<tench_ui::WindowControl>,
 }

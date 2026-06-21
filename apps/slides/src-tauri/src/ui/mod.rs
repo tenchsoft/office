@@ -83,6 +83,17 @@ impl SlidesApp {
 
         // Toolbar area
         if e.pos.y < TOOLBAR_H {
+            // Caption buttons (top-right) take priority.
+            if let Some(ctrl) = window_control_at(e.pos.x, e.pos.y, size.width, TOOLBAR_H) {
+                match ctrl {
+                    WindowControl::Close => ctx.submit_window_action(WindowAction::Close),
+                    WindowControl::Minimize => ctx.submit_window_action(WindowAction::Minimize),
+                    WindowControl::MaximizeRestore => {
+                        ctx.submit_window_action(WindowAction::ToggleMaximize)
+                    }
+                }
+                return;
+            }
             let toolbar_rect = Rect::new(0.0, 0.0, size.width, TOOLBAR_H);
             let layout = toolbar_layout(toolbar_rect);
             let mut handled = false;
@@ -124,6 +135,9 @@ impl SlidesApp {
             }
             if handled {
                 ctx.request_paint();
+            } else {
+                // Empty toolbar space: begin a window drag-move.
+                ctx.submit_window_action(WindowAction::StartDrag);
             }
             return;
         }
@@ -304,6 +318,13 @@ impl SlidesApp {
         ctx: &mut EventCtx,
         e: &tench_ui::core::events::PointerMoveEvent,
     ) {
+        // Track caption button hover for visual feedback.
+        let size = ctx.state.size;
+        let new_hover = window_control_at(e.pos.x, e.pos.y, size.width, TOOLBAR_H);
+        if new_hover != self.state.window_control_hovered {
+            self.state.window_control_hovered = new_hover;
+            ctx.request_paint();
+        }
         match self.state.interaction.mode {
             DragMode::Move => {
                 self.state.update_drag(e.pos);

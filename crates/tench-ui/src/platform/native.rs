@@ -23,7 +23,7 @@ use winit::window::{Window, WindowAttributes};
 
 use crate::core::events::{
     ImeEvent, KeyboardEvent, LogicalKey, Modifiers, NamedKey, PointerButton, PointerButtonEvent,
-    PointerButtons, PointerEvent, PointerMoveEvent, PointerScrollEvent, TextEvent,
+    PointerButtons, PointerEvent, PointerMoveEvent, PointerScrollEvent, TextEvent, WindowAction,
     WindowEvent as TenchWindowEvent,
 };
 use crate::core::types::WidgetId;
@@ -72,6 +72,8 @@ pub struct NativeConfig {
     pub height: f64,
     /// Whether the window is resizable.
     pub resizable: bool,
+    /// Whether the OS window title bar (decorations) is shown.
+    pub decorations: bool,
 }
 
 impl Default for NativeConfig {
@@ -81,6 +83,7 @@ impl Default for NativeConfig {
             width: 1280.0,
             height: 720.0,
             resizable: true,
+            decorations: true,
         }
     }
 }
@@ -113,6 +116,12 @@ pub struct NativeBackend {
     pointer_buttons: PointerButtons,
     /// Current keyboard modifier state.
     modifiers: Modifiers,
+    /// Weak handle to the winit window, used to execute window-level actions
+    /// (minimize / maximize / drag) drained from `pending_actions`.
+    window: std::sync::Weak<Window>,
+    /// Set when a widget requests `WindowAction::Close`. The `NativeApp`
+    /// polls this after event dispatch and calls `event_loop.exit()`.
+    request_close: bool,
 }
 
 impl NativeBackend {
@@ -213,6 +222,8 @@ impl NativeBackend {
             last_cursor_pos: Point::ZERO,
             pointer_buttons: PointerButtons::new(),
             modifiers: Modifiers::default(),
+            window: std::sync::Arc::downgrade(&window),
+            request_close: false,
         }
     }
 
@@ -299,6 +310,7 @@ impl NativeBackend {
             let _ = (event, root);
         }
 
+        self.drain_window_actions();
         needs_redraw
     }
 
@@ -332,7 +344,55 @@ impl NativeBackend {
         if ctx.anim_requested {
             self.anim_requested = true;
         }
+        self.drain_window_actions();
         true
+    }
+
+    /// Drain `WindowAction`s submitted by widgets via
+    /// [`crate::EventCtx::submit_window_action`] and execute them on the
+    /// winit window. Non-window actions are preserved in `pending_actions`.
+    ///
+    /// `WindowAction::Close` does not close the window directly (winit 0.30
+    /// exposes no `Window::close`); instead it sets `request_close`, which
+    /// [`NativeApp`] polls and translates into `event_loop.exit()`.
+    fn drain_window_actions(&mut self) {
+        let actions = std::mem::take(&mut self.global.pending_actions);
+        let window = self.window.upgrade();
+        for (action, id) in actions {
+            if !action.is::<WindowAction>() {
+                self.global.pending_actions.push((action, id));
+                continue;
+            }
+            let wa = action
+                .downcast::<WindowAction>()
+                .expect("checked is::<WindowAction> above");
+            match wa {
+                WindowAction::Close => self.request_close = true,
+                WindowAction::Minimize => {
+                    if let Some(w) = &window {
+                        w.set_minimized(true);
+                    }
+                }
+                WindowAction::ToggleMaximize => {
+                    if let Some(w) = &window {
+                        let next = !w.is_maximized();
+                        w.set_maximized(next);
+                        self.global.window_maximized = next;
+                    }
+                }
+                WindowAction::StartDrag => {
+                    if let Some(w) = &window {
+                        let _ = w.drag_window();
+                    }
+                }
+            }
+        }
+    }
+
+    /// Consume a pending close request, if any. Polled by `NativeApp` after
+    /// dispatching events so it can call `event_loop.exit()`.
+    pub fn take_close_request(&mut self) -> bool {
+        std::mem::take(&mut self.request_close)
     }
 
     /// Returns `true` if an animation frame has been requested since the last
@@ -349,6 +409,12 @@ impl NativeBackend {
 
     /// Run layout and render a frame.
     pub fn render(&mut self) {
+        // Refresh the maximized flag so widgets paint the correct caption
+        // glyph. winit 0.30 has no MaximizedChanged event, so poll on render.
+        if let Some(w) = self.window.upgrade() {
+            self.global.window_maximized = w.is_maximized();
+        }
+
         let surface = match &self.surface {
             Some(s) => s,
             None => return,
@@ -442,6 +508,12 @@ impl NativeBackend {
             WindowEvent::Focused(focused) => {
                 self.on_window_event(TenchWindowEvent::Focused(focused));
                 true
+            }
+            WindowEvent::CloseRequested => {
+                // Honor external close requests (Alt+F4, taskbar, etc.).
+                self.request_close = true;
+                self.on_window_event(TenchWindowEvent::Destroyed);
+                false
             }
             WindowEvent::Destroyed => {
                 self.on_window_event(TenchWindowEvent::Destroyed);
@@ -734,7 +806,8 @@ impl ApplicationHandler for NativeApp {
                 self.config.width,
                 self.config.height,
             ))
-            .with_resizable(self.config.resizable);
+            .with_resizable(self.config.resizable)
+            .with_decorations(self.config.decorations);
 
         let window = event_loop
             .create_window(attrs)
@@ -779,6 +852,11 @@ impl ApplicationHandler for NativeApp {
         let mut needs_redraw = false;
         if let Some(backend) = &mut self.backend {
             needs_redraw = backend.handle_winit_window_event(event);
+            // A widget may have requested `WindowAction::Close` during dispatch.
+            if backend.take_close_request() {
+                event_loop.exit();
+                return;
+            }
         }
         if needs_redraw {
             if let Some(window) = &self.window {

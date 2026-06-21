@@ -87,6 +87,8 @@ impl KodocsState {
             version_history_collapsed: false,
             hovered_tooltip: None,
             hovered_tooltip_x: 0.0,
+            window_maximized: false,
+            window_control_hovered: None,
         }
     }
 

@@ -217,6 +217,25 @@ pub enum Update {
     RequestScrollTo(Rect),
 }
 
+/// A request targeting the platform window (minimize / maximize-restore /
+/// close / start drag-move). Widgets submit these via
+/// [`crate::EventCtx::submit_window_action`]; the native backend drains them
+/// from `GlobalState::pending_actions` and executes them on the winit window.
+///
+/// Headless test harnesses do not execute the actions; tests inspect the queue
+/// via `TestHarness::drain_actions` to verify intent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowAction {
+    /// Minimize the window to the taskbar / dock.
+    Minimize,
+    /// Toggle between maximized and restored window state.
+    ToggleMaximize,
+    /// Close the window (and exit the app if it is the last window).
+    Close,
+    /// Begin an interactive drag-move of the window by the title bar.
+    StartDrag,
+}
+
 /// An action emitted by a widget, to be handled by ancestors.
 #[derive(Debug)]
 pub struct Action {

@@ -17,7 +17,7 @@ pub mod theme;
 pub mod widgets;
 
 // Re-export core types for convenience
-pub use core::events::{PointerEvent, TextEvent, WindowEvent};
+pub use core::events::{PointerEvent, TextEvent, WindowAction, WindowEvent};
 pub use core::types::{Color, WidgetId};
 pub use core::widget::{
     AccessCtx, AccessRole, AccessibilityNode, EventCtx, GlobalState, LayoutCtx, MeasureCtx,
@@ -49,7 +49,8 @@ pub use widgets::{
     Toast, ToastKind, Toggle, Toolbar, ToolbarItem, TreeItem, TreeView, VirtualTree,
     VirtualTreeHit, VirtualTreeNode, VirtualTreeRow, VirtualTreeSearchMatch, VirtualTreeViewport,
     VirtualTreeVisibleRange, VisualSurface, VisualSurfaceCommand, VisualSurfaceCommandKind,
-    VisualSurfaceHit, VisualSurfaceViewport, WordCounter,
+    VisualSurfaceHit, VisualSurfaceViewport, WindowControl, WordCounter, WINDOW_CONTROLS_W,
+    WINDOW_CONTROL_BTN_W,
 };
 
 // Re-export platform backends (feature-gated)
@@ -74,7 +75,7 @@ pub use vello;
 pub mod prelude {
     pub use crate::anim::AnimInterval;
     pub use crate::core::events::{
-        LogicalKey, Modifiers, NamedKey, PointerEvent, TextEvent, WindowEvent,
+        LogicalKey, Modifiers, NamedKey, PointerEvent, TextEvent, WindowAction, WindowEvent,
     };
     pub use crate::core::types::{Color, CursorIcon, WidgetId};
     pub use crate::core::widget::{
@@ -99,8 +100,10 @@ pub mod prelude {
         ToastKind, Toggle, Toolbar, ToolbarItem, TreeItem, TreeView, VirtualTree, VirtualTreeHit,
         VirtualTreeNode, VirtualTreeRow, VirtualTreeSearchMatch, VirtualTreeViewport,
         VirtualTreeVisibleRange, VisualSurface, VisualSurfaceCommand, VisualSurfaceCommandKind,
-        VisualSurfaceHit, VisualSurfaceViewport, WordCounter,
+        VisualSurfaceHit, VisualSurfaceViewport, WindowControl, WordCounter, WINDOW_CONTROLS_W,
+        WINDOW_CONTROL_BTN_W,
     };
+    pub use crate::widgets::{paint_window_controls, window_control_at};
     pub use crate::{
         describe_selector, find_node, find_nodes, format_capture_report, format_tree_report,
         interactive_node_inventory, node_inventory, nodes_at_point, walk_nodes, UiAutomationAction,

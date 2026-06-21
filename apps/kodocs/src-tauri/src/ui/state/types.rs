@@ -719,6 +719,10 @@ pub struct KodocsState {
     pub hovered_tooltip: Option<String>,
     /// X position of the hovered toolbar button for tooltip placement.
     pub hovered_tooltip_x: f64,
+    /// Whether the platform window is currently maximized (caption glyph).
+    pub window_maximized: bool,
+    /// Caption button currently under the pointer, if any (hover feedback).
+    pub window_control_hovered: Option<tench_ui::WindowControl>,
 }
 
 impl Default for KodocsState {
