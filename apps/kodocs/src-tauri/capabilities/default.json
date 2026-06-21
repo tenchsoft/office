@@ -1,12 +1,10 @@
 {
   "identifier": "default",
-  "description": "Capability for the main window",
+  "description": "Default desktop permissions for Tench Kodocs",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "dialog:default",
-    "dialog:allow-open",
-    "dialog:allow-save",
     "shell:allow-open",
     "updater:default"
   ]

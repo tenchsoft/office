@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tench_office_runtime::{OfficeRuntimeProduct, SHEETS_RUNTIME};
 
 use tench_document_core::{
@@ -6,6 +6,7 @@ use tench_document_core::{
     OfficeRecentFile, OfficeRecoveryMetadata, OfficeSaveResponse,
 };
 use tench_fs_core::OfficeFileWatchEvent;
+use tench_license_store::{LicenseState, LicenseStatus, LicenseStore};
 
 use crate::ai;
 use crate::ai::{AiChatRequest, AiSuggestionRequest};
@@ -388,4 +389,75 @@ pub fn open_print_preview(
         current_page: app.state().print_preview.current_page,
         zoom: app.state().print_preview.zoom,
     })
+}
+
+// ---------------------------------------------------------------------------
+// License commands
+// ---------------------------------------------------------------------------
+
+/// Snapshot of the local license state, returned to the UI.
+#[derive(serde::Serialize)]
+pub struct LicenseStateResponse {
+    pub device_id: String,
+    pub license_key: Option<String>,
+    pub status: &'static str,
+    pub token_expires_at: Option<String>,
+    pub ephemeral: bool,
+}
+
+impl From<LicenseState> for LicenseStateResponse {
+    fn from(state: LicenseState) -> Self {
+        let status = match state.status() {
+            LicenseStatus::Unactivated => "unactivated",
+            LicenseStatus::Active => "active",
+            LicenseStatus::Expired => "expired",
+        };
+        Self {
+            device_id: state.device_id,
+            license_key: state.license_key,
+            status,
+            token_expires_at: state.token_expires_at,
+            ephemeral: false,
+        }
+    }
+}
+
+#[tauri::command]
+pub fn license_state(
+    license_store: tauri::State<'_, Arc<LicenseStore>>,
+) -> Result<LicenseStateResponse, String> {
+    let state = license_store.state();
+    let mut resp = LicenseStateResponse::from(state);
+    resp.ephemeral = license_store.is_ephemeral();
+    Ok(resp)
+}
+
+#[tauri::command]
+pub fn license_activate(
+    license_store: tauri::State<'_, Arc<LicenseStore>>,
+    license_key: String,
+) -> Result<LicenseStateResponse, String> {
+    tench_update_client::activate_license(
+        &license_store,
+        None,
+        &license_key,
+        "sheets",
+        env!("CARGO_PKG_VERSION"),
+    )
+    .map_err(|e| e.to_string())?;
+    let state = license_store.state();
+    let mut resp = LicenseStateResponse::from(state);
+    resp.ephemeral = license_store.is_ephemeral();
+    Ok(resp)
+}
+
+#[tauri::command]
+pub fn license_release(
+    license_store: tauri::State<'_, Arc<LicenseStore>>,
+) -> Result<LicenseStateResponse, String> {
+    tench_update_client::release_license(&license_store).map_err(|e| e.to_string())?;
+    let state = license_store.state();
+    let mut resp = LicenseStateResponse::from(state);
+    resp.ephemeral = license_store.is_ephemeral();
+    Ok(resp)
 }

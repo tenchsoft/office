@@ -40,6 +40,7 @@ dirs = { version = "6" }
 tauri = { version = "2" }
 tauri-build = { version = "2" }
 tauri-plugin-dialog = { version = "2" }
+tauri-plugin-shell = { version = "2" }
 zip = { version = "8.6", default-features = false, features = ["deflate"] }
 getrandom = { version = "0.3" }
 aes-gcm = { version = "0.10" }

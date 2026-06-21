@@ -10,6 +10,4 @@ description = "License-aware wrapper around tauri-plugin-updater for Tench deskt
 tench-license-store.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-sha2.workspace = true
-base64.workspace = true
 ureq.workspace = true

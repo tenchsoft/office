@@ -26,6 +26,10 @@ tench-shared-types.workspace = true
 tench-storage-core.workspace = true
 tench-office-runtime.workspace = true
 tench-ui = { workspace = true, features = ["tauri"] }
+tauri-plugin-shell.workspace = true
+tauri-plugin-updater.workspace = true
+tench-license-store.workspace = true
+tench-update-client.workspace = true
 
 [dev-dependencies]
 image.workspace = true

@@ -149,6 +149,30 @@ impl LicenseStore {
         }))
     }
 
+    /// Returns an in-memory-only store backed by an ephemeral device id.
+    /// Used as a non-fatal fallback when disk persistence is unavailable
+    /// (e.g. data directory not writable) so the caller can still surface
+    /// license state to the UI without crashing.
+    pub fn ephemeral() -> Arc<Self> {
+        let device_id = match device_id() {
+            Ok(id) => id,
+            Err(_) => {
+                let mut bytes = [0u8; 16];
+                let _ = getrandom::fill(&mut bytes);
+                format!(
+                    "{}{}",
+                    crate::device_id::EPHEMERAL_PREFIX,
+                    bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()
+                )
+            }
+        };
+        Arc::new(Self {
+            state: RwLock::new(LicenseState::fresh(device_id)),
+            path: PathBuf::new(),
+            ephemeral: true,
+        })
+    }
+
     /// Returns a snapshot of the current state.
     pub fn state(&self) -> LicenseState {
         self.state.read().unwrap().clone()

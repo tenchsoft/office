@@ -15,10 +15,12 @@
 //! See `tench-docs/plans/contracts/Licensing/licensing-auth.md` for the
 //! end-to-end protocol.
 
+pub mod activation;
 mod detect;
 mod error;
 mod manifest;
 
+pub use activation::{activate_license, release_license};
 pub use detect::{detect_install_method, InstallMethod};
 pub use error::UpdateClientError;
 pub use manifest::{
@@ -27,3 +29,4 @@ pub use manifest::{
 
 /// Default public tench-web origin.
 pub const DEFAULT_BASE_URL: &str = "https://tenchsoft.com";
+

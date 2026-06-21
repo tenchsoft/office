@@ -1,6 +1,7 @@
 use std::sync::Mutex;
 
 use tench_office_io::watcher::OfficeFileWatcher;
+use tench_license_store::LicenseStore;
 
 mod ai;
 mod commands;
@@ -10,9 +11,22 @@ mod workbook_service;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Load the local license credential store before starting Tauri so the
+    // updater plugin and UI can both read the device token from a single
+    // authoritative source. A failure here is non-fatal — we fall back to an
+    // ephemeral in-memory store so the app still runs (the user can activate
+    // from the License tab later).
+    let license_store = LicenseStore::load_or_init("sheets").unwrap_or_else(|e| {
+        eprintln!("license store init failed, falling back to ephemeral: {e}");
+        LicenseStore::ephemeral()
+    });
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Mutex::new(OfficeFileWatcher::new("tench-sheets")))
+        .manage(std::sync::Arc::clone(&license_store))
         .invoke_handler(tauri::generate_handler![
             commands::runtime_capabilities,
             commands::create_workbook,
@@ -42,8 +56,11 @@ pub fn run() {
             commands::clear_print_area,
             commands::print_document,
             commands::open_print_preview,
+            commands::license_state,
+            commands::license_activate,
+            commands::license_release,
         ])
-        .setup(|app| {
+        .setup(move |app| {
             crate::init_tenchi_ui(app);
             Ok(())
         })

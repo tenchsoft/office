@@ -18,15 +18,19 @@ serde.workspace = true
 serde_json.workspace = true
 tauri.workspace = true
 tauri-plugin-dialog.workspace = true
+tauri-plugin-shell.workspace = true
+tauri-plugin-updater.workspace = true
 tench-document-core.workspace = true
 tench-engine-core.workspace = true
 tench-fs-core.workspace = true
+tench-license-store.workspace = true
 tench-office-io.workspace = true
 tench-sheets-core.workspace = true
 tench-shared-types.workspace = true
 tench-storage-core.workspace = true
 tench-office-runtime.workspace = true
 tench-ui = { workspace = true, features = ["tauri"] }
+tench-update-client.workspace = true
 regex.workspace = true
 
 [dev-dependencies]

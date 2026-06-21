@@ -1,6 +1,7 @@
 use std::sync::{mpsc, Mutex, OnceLock};
 
 use tench_office_io::watcher::OfficeFileWatcher;
+use tench_license_store::LicenseStore;
 
 mod ai;
 mod commands;
@@ -54,9 +55,22 @@ pub fn init_tenchi_ui(app: &mut tauri::App) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Load the local license credential store before starting Tauri so the
+    // updater plugin and UI can both read the device token from a single
+    // authoritative source. A failure here is non-fatal — we fall back to an
+    // ephemeral in-memory store so the app still runs (the user can activate
+    // from the License tab later).
+    let license_store = LicenseStore::load_or_init("slides").unwrap_or_else(|e| {
+        eprintln!("license store init failed, falling back to ephemeral: {e}");
+        LicenseStore::ephemeral()
+    });
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Mutex::new(OfficeFileWatcher::new("tench-slides")))
+        .manage(std::sync::Arc::clone(&license_store))
         .invoke_handler(tauri::generate_handler![
             commands::runtime_capabilities,
             commands::create_presentation,
@@ -80,8 +94,11 @@ pub fn run() {
             commands::unwatch_file,
             commands::check_file_changes,
             commands::mark_file_self_saved,
+            commands::license_state,
+            commands::license_activate,
+            commands::license_release,
         ])
-        .setup(|app| {
+        .setup(move |app| {
             crate::init_tenchi_ui(app);
             Ok(())
         })

@@ -36,5 +36,17 @@
   },
   "build": {
     "frontendDist": "./frontend"
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://tenchsoft.com/api/device/releases?app=kodocs&channel=stable"
+      ],
+      "pubkey": "",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }
