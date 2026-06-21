@@ -12,6 +12,63 @@ use crate::core::types::Color;
 use crate::render::Painter;
 use kurbo::{Point, Rect};
 
+/// Width of the resize hit zone along each window edge, in logical pixels.
+pub const WINDOW_RESIZE_EDGE: f64 = 6.0;
+
+/// Conservative height of the caption-button zone at the top-right corner.
+/// The native backend excludes this rectangle from edge-resize hit-testing so
+/// the caption buttons (which span each app's header) keep priority. Covers
+/// the tallest header in the suite (sheets ≈ 56px) plus margin.
+const CAPTION_ZONE_H: f64 = 80.0;
+
+/// Which window edge / corner a pointer is over, for native resize.
+///
+/// Mirrors winit's `ResizeDirection` without coupling the widget layer to
+/// winit. The native backend maps this to `ResizeDirection` + `CursorIcon`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowResizeEdge {
+    North,
+    South,
+    East,
+    West,
+    NorthEast,
+    NorthWest,
+    SouthEast,
+    SouthWest,
+}
+
+/// Hit-test the window border for resize. Returns the edge / corner under
+/// `(x, y)`, or `None` when the point is in the interior or inside the
+/// caption-button zone (top-right), where caption clicks take priority.
+///
+/// `width` / `height` are the current window size in logical pixels.
+pub fn window_resize_edge_at(x: f64, y: f64, width: f64, height: f64) -> Option<WindowResizeEdge> {
+    // Exclude the caption-button rectangle (top-right) entirely.
+    if x > width - WINDOW_CONTROLS_W && y < CAPTION_ZONE_H {
+        return None;
+    }
+
+    let near_left = x < WINDOW_RESIZE_EDGE;
+    let near_right = x > width - WINDOW_RESIZE_EDGE;
+    let near_top = y < WINDOW_RESIZE_EDGE;
+    let near_bottom = y > height - WINDOW_RESIZE_EDGE;
+
+    // At most two adjacent edges can be near (a corner). Opposite edges cannot
+    // both be near on a sane window, so combinations like (left, right) resolve
+    // to None.
+    match (near_left, near_right, near_top, near_bottom) {
+        (true, false, true, false) => Some(WindowResizeEdge::NorthWest),
+        (false, true, true, false) => Some(WindowResizeEdge::NorthEast),
+        (true, false, false, true) => Some(WindowResizeEdge::SouthWest),
+        (false, true, false, true) => Some(WindowResizeEdge::SouthEast),
+        (true, false, false, false) => Some(WindowResizeEdge::West),
+        (false, true, false, false) => Some(WindowResizeEdge::East),
+        (false, false, true, false) => Some(WindowResizeEdge::North),
+        (false, false, false, true) => Some(WindowResizeEdge::South),
+        _ => None,
+    }
+}
+
 /// Width of a single caption button (minimize / maximize / close).
 pub const WINDOW_CONTROL_BTN_W: f64 = 46.0;
 
@@ -147,5 +204,80 @@ fn paint_glyph(
                 1.0,
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Test viewport. WINDOW_CONTROLS_W=138, CAPTION_ZONE_H=80, edge zone=6.
+    const W: f64 = 1280.0;
+    const H: f64 = 820.0;
+
+    #[test]
+    fn interior_point_is_not_resizable() {
+        assert_eq!(window_resize_edge_at(640.0, 410.0, W, H), None);
+    }
+
+    #[test]
+    fn just_outside_edge_is_not_resizable() {
+        // 7px from the left is one pixel beyond the 6px edge zone.
+        assert_eq!(window_resize_edge_at(7.0, 410.0, W, H), None);
+    }
+
+    #[test]
+    fn four_edges_match_their_directions() {
+        assert_eq!(
+            window_resize_edge_at(3.0, 410.0, W, H),
+            Some(WindowResizeEdge::West)
+        );
+        assert_eq!(
+            window_resize_edge_at(W - 3.0, 410.0, W, H),
+            Some(WindowResizeEdge::East)
+        );
+        assert_eq!(
+            window_resize_edge_at(640.0, 3.0, W, H),
+            Some(WindowResizeEdge::North)
+        );
+        assert_eq!(
+            window_resize_edge_at(640.0, H - 3.0, W, H),
+            Some(WindowResizeEdge::South)
+        );
+    }
+
+    #[test]
+    fn corners_match_their_diagonals() {
+        assert_eq!(
+            window_resize_edge_at(3.0, 3.0, W, H),
+            Some(WindowResizeEdge::NorthWest)
+        );
+        assert_eq!(
+            window_resize_edge_at(W - 3.0, H - 3.0, W, H),
+            Some(WindowResizeEdge::SouthEast)
+        );
+        assert_eq!(
+            window_resize_edge_at(3.0, H - 3.0, W, H),
+            Some(WindowResizeEdge::SouthWest)
+        );
+    }
+
+    #[test]
+    fn caption_zone_top_right_is_excluded() {
+        // The top-right corner belongs to the caption buttons, not resize.
+        assert_eq!(window_resize_edge_at(W - 3.0, 3.0, W, H), None);
+        // Right edge within the caption zone height is also excluded.
+        assert_eq!(window_resize_edge_at(W - 3.0, 40.0, W, H), None);
+        // Top edge within the caption zone width is also excluded.
+        assert_eq!(window_resize_edge_at(W - 50.0, 3.0, W, H), None);
+    }
+
+    #[test]
+    fn right_edge_below_caption_zone_resizes() {
+        // y=100 is below the 80px caption exclusion → right edge resize works.
+        assert_eq!(
+            window_resize_edge_at(W - 3.0, 100.0, W, H),
+            Some(WindowResizeEdge::East)
+        );
     }
 }

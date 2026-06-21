@@ -11,6 +11,7 @@
 | 최대화/복원 버튼 | `Button` | 단일 사각형(복원 상태) / 겹친 두 사각형(최대화 상태). `value`: `"restored"`/`"maximized"` |
 | 닫기 버튼 | `Button` | X 아이콘. hover 시 빨강 배경(`#E81123`) + 흰색 아이콘 |
 | 헤더 빈 영역 | (드래그 핸들) | 별도 노드 없음. 메뉴 항목/버튼 외 영역에서 `WindowAction::StartDrag` |
+| 창 테두리 가장자리 | (보이지 않는 핸들) | 상/하/좌/우 6px 폭, 모서리는 6×6px. 커서 모양으로 방향 표시 |
 
 ## Visual properties
 
@@ -20,6 +21,13 @@
 - hover 배경 (최소화/최대화): `rgba8(0x2A,0x2A,0x2A,0xFF)`.
 - hover 배경 (닫기): `rgba8(0xE8,0x11,0x23,0xFF)` (Windows caption 표준 빨강).
 - 기존 헤더 우측 콘텐츠(제목, 저장상태 pill, 통합문서명 등)는 `width - WINDOW_CONTROLS_W` 좌측으로 이동.
+
+## 크기 조절 (Resize)
+
+- 힛존: 각 가장자리 6px (`WINDOW_RESIZE_EDGE`). 모서리는 6×6px에서 대각선 방향.
+- 커서 매핑: 상/하 → `NsResize`, 좌/우 → `EwResize`, 좌상·우하 → `NwseResize`, 우상·좌하 → `NeswResize`. 내부 → `Default`.
+- 캡션 버튼 영역(우상단 `WINDOW_CONTROLS_W × CAPTION_ZONE_H(80px)`)은 크기 조절에서 **제외** — 캡션 클릭이 우선. `CAPTION_ZONE_H`는 제품별 헤더 높이 최대값(sheets ≈56px) + 여유.
+- 상호작용: 네이티브 백엔드가 가장자리에서 `drag_resize_window(direction)` 호출 (OS가 resize loop 처리). 위젯 트리로 이벤트 전달 안 함.
 
 ## States
 

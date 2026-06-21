@@ -19,7 +19,7 @@ use winit::event::{
     DeviceEvent, DeviceId, ElementState, MouseButton, MouseScrollDelta, WindowEvent,
 };
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::window::{Window, WindowAttributes};
+use winit::window::{CursorIcon, ResizeDirection, Window, WindowAttributes};
 
 use crate::core::events::{
     ImeEvent, KeyboardEvent, LogicalKey, Modifiers, NamedKey, PointerButton, PointerButtonEvent,
@@ -31,6 +31,7 @@ use crate::core::widget::{EventCtx, GlobalState, WidgetPod};
 use crate::layout::LayoutPass;
 use crate::render::RenderPass;
 use crate::theme::Theme;
+use crate::widgets::{window_resize_edge_at, WindowResizeEdge};
 
 /// The texture format Vello requires for its render target.
 const VELLO_RENDER_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
@@ -122,6 +123,9 @@ pub struct NativeBackend {
     /// Set when a widget requests `WindowAction::Close`. The `NativeApp`
     /// polls this after event dispatch and calls `event_loop.exit()`.
     request_close: bool,
+    /// Whether the pointer is currently over a resize edge. Tracked so the
+    /// cursor only changes on edge ↔ interior transitions.
+    on_resize_edge: bool,
 }
 
 impl NativeBackend {
@@ -224,6 +228,7 @@ impl NativeBackend {
             modifiers: Modifiers::default(),
             window: std::sync::Arc::downgrade(&window),
             request_close: false,
+            on_resize_edge: false,
         }
     }
 
@@ -522,6 +527,16 @@ impl NativeBackend {
             WindowEvent::CursorMoved { position, .. } => {
                 let pos = Point::new(position.x, position.y);
                 self.last_cursor_pos = pos;
+                // Switch the cursor when crossing a window resize edge.
+                let edge = window_resize_edge_at(pos.x, pos.y, self.size.width, self.size.height);
+                let now_on_edge = edge.is_some();
+                if now_on_edge != self.on_resize_edge {
+                    self.on_resize_edge = now_on_edge;
+                    if let Some(w) = self.window.upgrade() {
+                        let icon = edge.map(resize_cursor_for).unwrap_or(CursorIcon::Default);
+                        w.set_cursor(icon);
+                    }
+                }
                 self.on_pointer_event(PointerEvent::Move(PointerMoveEvent {
                     pos,
                     delta: kurbo::Vec2::ZERO, // winit doesn't provide delta directly
@@ -532,6 +547,21 @@ impl NativeBackend {
                 let btn = convert_mouse_button(button);
                 self.pointer_buttons
                     .set(btn, state == ElementState::Pressed);
+                // Edge-resize intercept: a press on a window edge starts a
+                // native resize loop and must not reach the widget tree.
+                if state == ElementState::Pressed {
+                    if let Some(edge) = window_resize_edge_at(
+                        self.last_cursor_pos.x,
+                        self.last_cursor_pos.y,
+                        self.size.width,
+                        self.size.height,
+                    ) {
+                        if let Some(w) = self.window.upgrade() {
+                            let _ = w.drag_resize_window(resize_direction_for(edge));
+                        }
+                        return false;
+                    }
+                }
                 let event = match state {
                     ElementState::Pressed => PointerEvent::Down(PointerButtonEvent {
                         button: btn,
@@ -604,6 +634,30 @@ fn convert_mouse_button(button: MouseButton) -> PointerButton {
         MouseButton::Other(id) => PointerButton::Other(id),
         MouseButton::Back => PointerButton::Other(4),
         MouseButton::Forward => PointerButton::Other(5),
+    }
+}
+
+/// Map a resize edge to the matching winit `ResizeDirection`.
+fn resize_direction_for(edge: WindowResizeEdge) -> ResizeDirection {
+    match edge {
+        WindowResizeEdge::North => ResizeDirection::North,
+        WindowResizeEdge::South => ResizeDirection::South,
+        WindowResizeEdge::East => ResizeDirection::East,
+        WindowResizeEdge::West => ResizeDirection::West,
+        WindowResizeEdge::NorthEast => ResizeDirection::NorthEast,
+        WindowResizeEdge::NorthWest => ResizeDirection::NorthWest,
+        WindowResizeEdge::SouthEast => ResizeDirection::SouthEast,
+        WindowResizeEdge::SouthWest => ResizeDirection::SouthWest,
+    }
+}
+
+/// Map a resize edge to the matching winit `CursorIcon`.
+fn resize_cursor_for(edge: WindowResizeEdge) -> CursorIcon {
+    match edge {
+        WindowResizeEdge::North | WindowResizeEdge::South => CursorIcon::NsResize,
+        WindowResizeEdge::East | WindowResizeEdge::West => CursorIcon::EwResize,
+        WindowResizeEdge::NorthEast | WindowResizeEdge::SouthWest => CursorIcon::NeswResize,
+        WindowResizeEdge::NorthWest | WindowResizeEdge::SouthEast => CursorIcon::NwseResize,
     }
 }
 

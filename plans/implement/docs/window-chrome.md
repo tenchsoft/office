@@ -11,10 +11,11 @@
 
 | 영역 | 무엇이 바뀌나 | 찾기 전략 |
 |------|----------------|-----------|
+| `crates/tench-ui/src/widgets/window_controls.rs` (신규) | `paint_window_controls` / `window_control_at` / `control_rect` + `WINDOW_CONTROLS_W` 상수; `window_resize_edge_at` / `WindowResizeEdge` (크기 조절 힛테스트) | `pub fn paint_window_controls`, `pub fn window_resize_edge_at` |
 | `crates/tench-ui/src/core/events.rs` | `WindowAction` enum 추가 (`Minimize`/`ToggleMaximize`/`Close`/`StartDrag`) | `pub enum WindowAction` |
 | `crates/tench-ui/src/core/widget.rs` | `GlobalState.window_maximized` 필드 + `EventCtx::submit_window_action` | `pub struct GlobalState`, `impl EventCtx` |
 | `crates/tench-ui/src/widgets/window_controls.rs` (신규) | `paint_window_controls` / `window_control_at` / `control_rect` + `WINDOW_CONTROLS_W` 상수 | `pub fn paint_window_controls` |
-| `crates/tench-ui/src/platform/native.rs` | `NativeBackend`가 `Weak<Window>` 보유, `drain_window_actions()`에서 실행, `request_close` 플래그로 `NativeApp`이 `event_loop.exit()` | `fn drain_window_actions`, `take_close_request` |
+| `crates/tench-ui/src/platform/native.rs` | `NativeBackend`가 `Weak<Window>` 보유, `drain_window_actions()`에서 실행, `request_close` 플래그로 `NativeApp`이 `event_loop.exit()`; 테두리 resize는 `handle_winit_window_event`에서 `CursorMoved`(커서 전환)/`MouseInput`(drag_resize_window, 위젯 우회) 처리 | `fn drain_window_actions`, `fn resize_direction_for`, `fn resize_cursor_for` |
 | `crates/tench-ui/src/lib.rs` | `WindowAction`, `WindowControl`, `WINDOW_CONTROLS_W`, `paint_window_controls`, `window_control_at` re-export + prelude | `pub use widgets::` |
 | 각 앱 `<app>/src-tauri/src/ui/state` | `window_maximized: bool`, `window_control_hovered: Option<WindowControl>` 필드 + 초기화 | `pub struct <App>State`, `<App>State::new` |
 | 각 앱 메뉴 바/툴바 페인트 | 우측 콘텐츠 `WINDOW_CONTROLS_W`만큼 좌측 이동 + `paint_window_controls` 호출 | `fn paint_menu_bar` / `fn paint_toolbar` |
@@ -50,6 +51,12 @@
 
 ### 5. 자동화 노드
 - 각 앱 `<app>_automation_nodes`에 3개 버튼 노드 push. maximize 노드는 `value: "restored"/"maximized"`. rect는 `control_rect`로 단일 진실.
+
+### 6. 테두리 크기 조절 (네이티브 백엔드)
+- **입력**: winit `CursorMoved` / `MouseInput` (물리 좌표).
+- **처리**: `window_resize_edge_at(x, y, w, h)`로 가장자리 방향 계산. `CursorMoved` 시 edge↔내부 전환에서만 커서 set (`resize_cursor_for` → `NsResize`/`EwResize`/`NwseResize`/`NeswResize`/`Default`). `MouseInput` Pressed 시 edge면 `window.drag_resize_window(resize_direction_for(edge))` 후 위젯 전달 생략(`return false`).
+- **출력**: OS가 resize loop 수행 → `Resized` 이벤트 → 재페인트. 헤드리스 하니스는 `handle_winit_window_event`를 안 거치므로 간섭 없음.
+- **캡션 제외**: `window_resize_edge_at` 내부에서 `x > width - WINDOW_CONTROLS_W && y < 80` 영역은 `None` (캡션 버튼 우선).
 
 ## 새 자동화 노드
 
