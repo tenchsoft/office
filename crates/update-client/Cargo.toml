@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Tench desktop update client — manifest fetch, ED25519 verify, delta patch, install-method detect"
+description = "License-aware wrapper around tauri-plugin-updater for Tench desktop apps"
 
 [dependencies]
 tench-license-store.workspace = true
@@ -13,7 +13,3 @@ serde_json.workspace = true
 sha2.workspace = true
 base64.workspace = true
 ureq.workspace = true
-ed25519-dalek.workspace = true
-
-[dev-dependencies]
-rand_core = { version = "0.6", features = ["std"] }

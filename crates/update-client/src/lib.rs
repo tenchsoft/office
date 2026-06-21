@@ -1,32 +1,29 @@
 //! Tench desktop update client.
 //!
-//! Responsibilities (see plans/spec/docs/ feature chains):
-//! - Fetch release manifest from `/api/device/releases`
-//! - Verify ED25519 signature with compile-time-embedded public key
-//! - Compare versions and surface availability
-//! - (TODO) Apply bsdiff delta patches and platform-specific swap
+//! Thin orchestration layer around `tauri-plugin-updater` that:
+//! - Loads the device token from `tench-license-store`
+//! - Configures the Tauri updater endpoint with `Authorization: Tench-Device`
+//!   so the server can gate updates by license validity
+//! - Reports availability / install status back to the UI
 //!
-//! This crate is intentionally HTTP-thin: the heavy lifting (bsdiff, swap)
-//! lands in follow-up features and is gated behind `cfg`-flagged modules.
+//! The actual download, signature verification, and platform-specific swap
+//! are handled by `tauri-plugin-updater` (see AGENTS.md "Self-Implementation
+//! Principle > Per-Component Decisions" for the rationale). We use Tauri's
+//! standard `latest.json` manifest format and minisign signatures — the
+//! server emits both from a single source of truth.
+//!
+//! See `tench-docs/plans/contracts/Licensing/licensing-auth.md` for the
+//! end-to-end protocol.
 
 mod detect;
 mod error;
 mod manifest;
-mod verify;
 
 pub use detect::{detect_install_method, InstallMethod};
 pub use error::UpdateClientError;
 pub use manifest::{
-    fetch_manifest, AssetRelease, DeltaRelease, Manifest, PlatformRelease, ReleasePriority,
+    current_platform_key, fetch_manifest, is_newer_version, ManifestResponse,
 };
-pub use verify::{verify_manifest_signature, VerifyingKeyBytes};
 
-/// Default public tench-web origin. Override at runtime by passing a different
-/// base URL to [`fetch_manifest`].
+/// Default public tench-web origin.
 pub const DEFAULT_BASE_URL: &str = "https://tenchsoft.com";
-
-/// Compile-time embedded ED25519 public key (32 raw bytes). Replace with the
-/// real key produced by the keypair generation script (see
-/// `tools/update-keygen/`). Until then, this is a placeholder that will fail
-/// verification — by design — so unsigned manifests cannot slip through.
-pub const EMBEDDED_PUBLIC_KEY: VerifyingKeyBytes = VerifyingKeyBytes::placeholder();

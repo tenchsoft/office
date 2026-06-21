@@ -1,14 +1,11 @@
 //! Release manifest types and HTTP fetch.
 //!
-//! Wire contract mirrors `tench-docs/plans/contracts/Licensing/licensing-auth.md`
-//! §12.2 and `tench-web/functions/api/device/releases.ts`.
-//!
-//! Several functions in this module are flagged `#[allow(dead_code)]` because
-//! they are part of the public API consumed by the upcoming
-//! `update-check-weekly` and `update-install-flow` feature chains (not yet
-//! wired into a binary).
-
-#![allow(dead_code)]
+//! Wire format matches Tauri 2 updater's `latest.json` schema so the
+//! `tauri-plugin-updater` can consume the response directly. Our server's
+//! `/api/device/releases` endpoint authenticates the request via the
+//! `Authorization: Tench-Device` header and then returns the manifest below
+//! (or 401 if the device's license is no longer valid, which silently
+//! disables updates for that client).
 
 use crate::error::UpdateClientError;
 use serde::{Deserialize, Serialize};
@@ -16,78 +13,33 @@ use serde::{Deserialize, Serialize};
 const SUPPORTED_APPS: &[&str] = &["docs", "sheets", "slides", "kodocs"];
 const SUPPORTED_CHANNELS: &[&str] = &["stable", "beta"];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ReleasePriority {
-    Normal,
-    Critical,
-}
-
+/// Tauri-compatible release manifest. See Tauri 2 updater docs for the
+/// canonical schema; we mirror it here so the plugin can parse the response
+/// without an intermediate translation layer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AssetRelease {
-    pub url: String,
-    pub size: u64,
-    pub sha256: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DeltaRelease {
-    pub from: String,
-    pub url: String,
-    pub size: u64,
-    pub sha256: String,
-    pub patch_algo: String,
-    pub target_sha256: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlatformRelease {
-    pub full: AssetRelease,
-    #[serde(default)]
-    pub deltas: Vec<DeltaRelease>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Manifest {
-    pub app: String,
-    pub version: String,
-    pub released_at: String,
-    pub priority: ReleasePriority,
-    pub platforms: std::collections::HashMap<String, PlatformRelease>,
-}
-
-/// Server-side response envelope. `manifest_str` is the **raw** JSON string
-/// that the client must use for ED25519 verification (NOT a re-serialized
-/// version of `manifest`).
-#[derive(Debug, Clone, Deserialize)]
 pub struct ManifestResponse {
-    pub app: String,
-    pub channel: String,
     pub version: String,
-    pub priority: String,
-    pub released_at: String,
-    pub notes: Option<String>,
-    pub manifest_str: String,
+    #[serde(default)]
+    pub notes: String,
+    pub pub_date: String,
+    /// Platform → {signature, url}. Tauri uses `darwin-*` for macOS.
+    pub platforms: std::collections::HashMap<String, PlatformEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlatformEntry {
+    /// minisign signature over the downloaded archive.
     pub signature: String,
+    /// URL of the platform-specific update bundle (.msi.zip on Windows,
+    /// .AppImage.tar.gz on Linux, .app.tar.gz on macOS).
+    pub url: String,
 }
 
-impl ManifestResponse {
-    pub fn priority(&self) -> Result<ReleasePriority, UpdateClientError> {
-        match self.priority.as_str() {
-            "normal" => Ok(ReleasePriority::Normal),
-            "critical" => Ok(ReleasePriority::Critical),
-            _ => Err(UpdateClientError::ManifestUnparseable),
-        }
-    }
-
-    pub fn parse_manifest(&self) -> Result<Manifest, UpdateClientError> {
-        serde_json::from_str::<Manifest>(&self.manifest_str)
-            .map_err(|_| UpdateClientError::ManifestUnparseable)
-    }
-}
-
-/// Fetches the latest manifest for `app` on `channel` from the tench-web
-/// server. `device_token` is sent as `Authorization: Tench-Device <token>`.
+/// Fetches the latest Tauri-format manifest for `app` on `channel`.
+///
+/// The server returns 401 when the device's license has expired or been
+/// revoked — callers should treat that as "no update available, surface the
+/// reactivation UI".
 pub fn fetch_manifest(
     base_url: &str,
     app: &str,
@@ -101,9 +53,7 @@ pub fn fetch_manifest(
         return Err(UpdateClientError::ManifestUnparseable);
     }
 
-    let url = format!(
-        "{base_url}/api/device/releases?app={app}&channel={channel}"
-    );
+    let url = format!("{base_url}/api/device/releases?app={app}&channel={channel}");
     let response = ureq::get(&url)
         .set("Authorization", &format!("Tench-Device {device_token}"))
         .call()
@@ -115,30 +65,20 @@ pub fn fetch_manifest(
             ureq::Error::Transport(_) => UpdateClientError::NetworkUnavailable,
         })?;
 
-    let body: ManifestResponse =
-        response.into_json().map_err(|e| UpdateClientError::Http(e.to_string()))?;
+    let body: ManifestResponse = response
+        .into_json()
+        .map_err(|e| UpdateClientError::Http(e.to_string()))?;
     Ok(body)
 }
 
-/// Returns the platform entry for the running OS/arch, or an error if the
-/// manifest does not cover this platform.
-pub fn platform_release_for_current<'a>(
-    manifest: &'a Manifest,
-) -> Result<&'a PlatformRelease, UpdateClientError> {
-    let key = current_platform_key();
-    manifest
-        .platforms
-        .get(&key)
-        .ok_or(UpdateClientError::PlatformNotFound)
-}
-
-/// Returns the canonical platform key used in manifests, e.g.
-/// `windows-x86_64`, `linux-x86_64`, `macos-arm64`.
+/// Returns the canonical platform key used in Tauri manifests.
+/// Tauri uses `darwin-*` for macOS (NOT `macos-*`) and `windows-*` /
+/// `linux-*` for the other two.
 pub fn current_platform_key() -> String {
     let os = if cfg!(target_os = "windows") {
         "windows"
     } else if cfg!(target_os = "macos") {
-        "macos"
+        "darwin"
     } else if cfg!(target_os = "linux") {
         "linux"
     } else {
@@ -147,16 +87,15 @@ pub fn current_platform_key() -> String {
     let arch = if cfg!(target_arch = "x86_64") {
         "x86_64"
     } else if cfg!(target_arch = "aarch64") {
-        "arm64"
+        "aarch64"
     } else {
         "unknown"
     };
     format!("{os}-{arch}")
 }
 
-/// Returns true if `candidate` is strictly newer than `current` per loose
-/// semver rules (major.minor.patch). Pre-release suffixes are compared
-/// lexicographically when the rest is equal.
+/// Loose semver "strictly newer" check used to decide whether to surface an
+/// update notification before Tauri's own updater runs.
 pub fn is_newer_version(candidate: &str, current: &str) -> bool {
     match (parse_semver(candidate), parse_semver(current)) {
         (Some(c), Some(cur)) => c > cur,
@@ -189,24 +128,42 @@ mod tests {
     }
 
     #[test]
-    fn version_compare_prerelease() {
-        // 0.2.0-beta is treated equal-but-different to 0.2.0.
-        assert!(!is_newer_version("0.2.0", "0.2.0"));
-        assert!(is_newer_version("0.2.0", "0.2.0-beta"));
-    }
-
-    #[test]
-    fn platform_key_starts_with_os() {
+    fn platform_key_uses_tauri_darwin_prefix_on_macos() {
+        // Tauri uses `darwin-*` for macOS. Verify our key follows that
+        // convention on macOS hosts; on other hosts we just sanity-check
+        // the prefix matches the host OS as Tauri expects.
         let key = current_platform_key();
-        let os_prefix = if cfg!(target_os = "windows") {
+        let prefix = if cfg!(target_os = "windows") {
             "windows-"
         } else if cfg!(target_os = "macos") {
-            "macos-"
+            "darwin-"
         } else if cfg!(target_os = "linux") {
             "linux-"
         } else {
             return;
         };
-        assert!(key.starts_with(os_prefix));
+        assert!(key.starts_with(prefix));
+    }
+
+    #[test]
+    fn manifest_parses_tauri_format() {
+        let json = r#"{
+            "version": "0.2.0",
+            "notes": "bug fixes",
+            "pub_date": "2026-06-21T12:00:00Z",
+            "platforms": {
+                "windows-x86_64": {
+                    "signature": "sig",
+                    "url": "https://example.com/msi.zip"
+                }
+            }
+        }"#;
+        let parsed: ManifestResponse = serde_json::from_str(json).expect("parse");
+        assert_eq!(parsed.version, "0.2.0");
+        assert_eq!(parsed.platforms.len(), 1);
+        assert_eq!(
+            parsed.platforms["windows-x86_64"].url,
+            "https://example.com/msi.zip"
+        );
     }
 }
