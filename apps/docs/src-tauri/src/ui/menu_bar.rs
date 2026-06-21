@@ -1,4 +1,4 @@
-use super::state::{c_accent, c_menu_bg, c_separator, c_text_dim, c_text_light, DocsState};
+﻿use super::state::{c_accent, c_menu_bg, c_separator, c_text_dim, c_text_light, DocsState};
 use tench_ui::parley::FontWeight;
 use tench_ui::prelude::*;
 use tench_ui::render::TextCache;
@@ -113,10 +113,10 @@ pub(super) fn notification_label_message(state: &DocsState) -> Option<&'static s
         if cycle == 0 {
             Some("신규 업데이트 있음")
         } else {
-            Some("월 $1 로 라이선스 활성화 가능")
+            Some("월 $2 로 라이선스 활성화 가능")
         }
     } else {
-        Some("월 $1 로 라이선스 활성화 가능")
+        Some("월 $2 로 라이선스 활성화 가능")
     }
 }
 

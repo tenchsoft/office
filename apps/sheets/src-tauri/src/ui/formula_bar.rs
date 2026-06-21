@@ -1,4 +1,4 @@
-use super::state::{LicenseModalState, MenuAction, MenuItem, SheetsState};
+﻿use super::state::{LicenseModalState, MenuAction, MenuItem, SheetsState};
 use tench_ui::parley::FontWeight;
 use tench_ui::prelude::*;
 
@@ -423,10 +423,10 @@ pub(crate) fn notification_label_message(state: &SheetsState) -> Option<&'static
         if cycle == 0 {
             Some("신규 업데이트 있음")
         } else {
-            Some("월 $1 로 라이선스 활성화 가능")
+            Some("월 $2 로 라이선스 활성화 가능")
         }
     } else {
-        Some("월 $1 로 라이선스 활성화 가능")
+        Some("월 $2 로 라이선스 활성화 가능")
     }
 }
 
