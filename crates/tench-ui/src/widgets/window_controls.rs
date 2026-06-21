@@ -15,6 +15,12 @@ use kurbo::{Point, Rect};
 /// Width of the resize hit zone along each window edge, in logical pixels.
 pub const WINDOW_RESIZE_EDGE: f64 = 6.0;
 
+/// Half-size of the resize hit zone at each window corner, in logical pixels.
+/// Larger than `WINDOW_RESIZE_EDGE` so corners are easy to grab — without this
+/// the corner is only `EDGE × EDGE` and the pointer almost always lands on an
+/// adjacent edge instead of the diagonal.
+pub const WINDOW_RESIZE_CORNER: f64 = 12.0;
+
 /// Conservative height of the caption-button zone at the top-right corner.
 /// The native backend excludes this rectangle from edge-resize hit-testing so
 /// the caption buttons (which span each app's header) keep priority. Covers
@@ -48,19 +54,33 @@ pub fn window_resize_edge_at(x: f64, y: f64, width: f64, height: f64) -> Option<
         return None;
     }
 
+    // Corner zones (larger) are checked first so a corner grab wins over the
+    // adjacent edges — this is what makes diagonal resize reachable. Without
+    // this, the corner would only be EDGE × EDGE and the pointer almost always
+    // lands on an adjacent edge instead.
+    let corner_left = x < WINDOW_RESIZE_CORNER;
+    let corner_right = x > width - WINDOW_RESIZE_CORNER;
+    let corner_top = y < WINDOW_RESIZE_CORNER;
+    let corner_bottom = y > height - WINDOW_RESIZE_CORNER;
+    if corner_left && corner_top {
+        return Some(WindowResizeEdge::NorthWest);
+    }
+    if corner_right && corner_top {
+        return Some(WindowResizeEdge::NorthEast);
+    }
+    if corner_left && corner_bottom {
+        return Some(WindowResizeEdge::SouthWest);
+    }
+    if corner_right && corner_bottom {
+        return Some(WindowResizeEdge::SouthEast);
+    }
+
+    // Edge zones (narrower).
     let near_left = x < WINDOW_RESIZE_EDGE;
     let near_right = x > width - WINDOW_RESIZE_EDGE;
     let near_top = y < WINDOW_RESIZE_EDGE;
     let near_bottom = y > height - WINDOW_RESIZE_EDGE;
-
-    // At most two adjacent edges can be near (a corner). Opposite edges cannot
-    // both be near on a sane window, so combinations like (left, right) resolve
-    // to None.
     match (near_left, near_right, near_top, near_bottom) {
-        (true, false, true, false) => Some(WindowResizeEdge::NorthWest),
-        (false, true, true, false) => Some(WindowResizeEdge::NorthEast),
-        (true, false, false, true) => Some(WindowResizeEdge::SouthWest),
-        (false, true, false, true) => Some(WindowResizeEdge::SouthEast),
         (true, false, false, false) => Some(WindowResizeEdge::West),
         (false, true, false, false) => Some(WindowResizeEdge::East),
         (false, false, true, false) => Some(WindowResizeEdge::North),
@@ -278,6 +298,36 @@ mod tests {
         assert_eq!(
             window_resize_edge_at(W - 3.0, 100.0, W, H),
             Some(WindowResizeEdge::East)
+        );
+    }
+
+    #[test]
+    fn enlarged_corner_zone_wins_over_adjacent_edge() {
+        // (10, 4) is within the 12px corner but outside the 6px edge zone on x.
+        // With a uniform 6px zone this would resolve to the top edge (North);
+        // the enlarged corner must grab it as a diagonal instead.
+        assert_eq!(
+            window_resize_edge_at(10.0, 4.0, W, H),
+            Some(WindowResizeEdge::NorthWest)
+        );
+        assert_eq!(
+            window_resize_edge_at(4.0, 10.0, W, H),
+            Some(WindowResizeEdge::NorthWest)
+        );
+        // Bottom-right corner enlarged zone.
+        assert_eq!(
+            window_resize_edge_at(W - 10.0, H - 4.0, W, H),
+            Some(WindowResizeEdge::SouthEast)
+        );
+    }
+
+    #[test]
+    fn beyond_corner_zone_falls_back_to_edge() {
+        // 13px from the corner on one axis is outside the 12px corner zone, so
+        // it must fall back to the edge (not the diagonal).
+        assert_eq!(
+            window_resize_edge_at(13.0, 3.0, W, H),
+            Some(WindowResizeEdge::North)
         );
     }
 }

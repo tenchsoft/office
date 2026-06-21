@@ -105,6 +105,7 @@ pub use visual_surface::{
 };
 pub use window_controls::{
     control_rect, paint_window_controls, window_control_at, window_resize_edge_at, WindowControl,
-    WindowResizeEdge, WINDOW_CONTROLS_W, WINDOW_CONTROL_BTN_W, WINDOW_RESIZE_EDGE,
+    WindowResizeEdge, WINDOW_CONTROLS_W, WINDOW_CONTROL_BTN_W, WINDOW_RESIZE_CORNER,
+    WINDOW_RESIZE_EDGE,
 };
 pub use word_counter::WordCounter;

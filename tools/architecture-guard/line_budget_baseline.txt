@@ -98,7 +98,7 @@ crates/tench-ui-test/src/snapshot.rs 505
 crates/tench-ui-test/src/test_helpers.rs 327
 crates/tench-ui/src/core/widget.rs 595
 crates/tench-ui/src/layout/flexbox.rs 346
-crates/tench-ui/src/platform/native.rs 1029
+crates/tench-ui/src/platform/native.rs 1030
 crates/tench-ui/src/platform/tauri.rs 1306
 crates/tench-ui/src/render/painter.rs 645
 crates/tench-ui/src/widgets/data_grid.rs 560
@@ -107,6 +107,7 @@ crates/tench-ui/src/widgets/text_area.rs 305
 crates/tench-ui/src/widgets/tree_view.rs 314
 crates/tench-ui/src/widgets/virtual_tree.rs 494
 crates/tench-ui/src/widgets/visual_surface.rs 586
+crates/tench-ui/src/widgets/window_controls.rs 333
 crates/ui-automation-core/src/lib.rs 852
 apps/docs/src-tauri/src/ui/automation/modal_nodes.rs 826
 apps/docs/src-tauri/src/ui/automation.rs 784

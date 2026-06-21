@@ -123,9 +123,10 @@ pub struct NativeBackend {
     /// Set when a widget requests `WindowAction::Close`. The `NativeApp`
     /// polls this after event dispatch and calls `event_loop.exit()`.
     request_close: bool,
-    /// Whether the pointer is currently over a resize edge. Tracked so the
-    /// cursor only changes on edge ↔ interior transitions.
-    on_resize_edge: bool,
+    /// The resize edge currently under the pointer, if any. Tracked so the
+    /// cursor updates whenever the edge *type* changes (e.g. top edge →
+    /// top-left corner), not just on edge ↔ interior transitions.
+    current_resize_edge: Option<crate::widgets::WindowResizeEdge>,
 }
 
 impl NativeBackend {
@@ -228,7 +229,7 @@ impl NativeBackend {
             modifiers: Modifiers::default(),
             window: std::sync::Arc::downgrade(&window),
             request_close: false,
-            on_resize_edge: false,
+            current_resize_edge: None,
         }
     }
 
@@ -527,11 +528,11 @@ impl NativeBackend {
             WindowEvent::CursorMoved { position, .. } => {
                 let pos = Point::new(position.x, position.y);
                 self.last_cursor_pos = pos;
-                // Switch the cursor when crossing a window resize edge.
+                // Switch the cursor when the resize edge under the pointer
+                // changes (including between two edge types, e.g. top → corner).
                 let edge = window_resize_edge_at(pos.x, pos.y, self.size.width, self.size.height);
-                let now_on_edge = edge.is_some();
-                if now_on_edge != self.on_resize_edge {
-                    self.on_resize_edge = now_on_edge;
+                if edge != self.current_resize_edge {
+                    self.current_resize_edge = edge;
                     if let Some(w) = self.window.upgrade() {
                         let icon = edge.map(resize_cursor_for).unwrap_or(CursorIcon::Default);
                         w.set_cursor(icon);
