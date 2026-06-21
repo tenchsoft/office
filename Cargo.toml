@@ -17,6 +17,8 @@ members = [
   "crates/office-runtime",
   "crates/hwp-io",
   "crates/sheets-core",
+  "crates/license-store",
+  "crates/update-client",
   "tools/architecture-guard",
 ]
 resolver = "3"
@@ -45,6 +47,10 @@ sha2 = { version = "0.10" }
 base64 = { version = "0.22" }
 image = { version = "0.25", default-features = false, features = ["bmp", "gif", "ico", "jpeg", "png", "pnm", "tga", "tiff", "webp"] }
 pollster = { version = "0.4" }
+windows-sys = { version = "0.59", features = ["Win32_System_Registry", "Win32_Foundation"] }
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+bsdiff = { version = "0.4", package = "bidiff" }
+bipatch = { version = "0.4" }
 
 # Internal crates
 tench-ui = { path = "crates/tench-ui" }
@@ -60,3 +66,5 @@ tench-office-io = { path = "crates/office-io" }
 tench-office-runtime = { path = "crates/office-runtime" }
 tench-hwp-io = { path = "crates/hwp-io" }
 tench-sheets-core = { path = "crates/sheets-core" }
+tench-license-store = { path = "crates/license-store" }
+tench-update-client = { path = "crates/update-client" }
