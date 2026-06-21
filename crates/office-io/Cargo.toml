@@ -1,0 +1,15 @@
+[package]
+name = "tench-office-io"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Shared I/O utilities for Tench office apps (Docs, Sheets, Slides)"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+tench-document-core.workspace = true
+tench-fs-core.workspace = true
+tench-storage-core.workspace = true
+zip.workspace = true

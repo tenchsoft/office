@@ -1,0 +1,9 @@
+/target/
+/.npm-cache/
+.forge/
+**/node_modules/
+apps/*/package-lock.json
+apps/*/src-tauri/gen/
+**/*.rs.bk
+**/dist/
+AGENTS.md

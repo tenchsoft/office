@@ -1,0 +1,35 @@
+[package]
+name = "tench-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Tench self-built UI framework — retained-mode widget tree with GPU rendering"
+
+[dependencies]
+vello = "0.8"
+parley = "0.9"
+accesskit = "0.24"
+kurbo = "0.13"
+peniko = "0.6"
+smallvec = "1"
+tauri = { version = "2", optional = true }
+log = "0.4"
+image.workspace = true
+pollster = { version = "0.4", optional = true }
+raw-window-handle = { version = "0.6", optional = true }
+winit = { version = "0.30", optional = true }
+tray-icon = { version = "0.23", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
+tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+tench-ui-automation-core.workspace = true
+
+[features]
+default = ["native"]
+tauri = ["dep:tauri", "dep:pollster", "dep:raw-window-handle", "dep:serde_json"]
+native = ["dep:winit", "dep:pollster"]
+tray = ["dep:tray-icon"]
+updater = ["dep:reqwest", "dep:tokio", "dep:serde"]
+ui-automation = ["tauri"]

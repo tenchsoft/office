@@ -1,0 +1,33 @@
+[package]
+name = "tench-slides"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Tench Slides desktop app"
+
+[lib]
+name = "tench_slides_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+tauri.workspace = true
+tauri-plugin-dialog.workspace = true
+tench-document-core.workspace = true
+tench-engine-core.workspace = true
+tench-fs-core.workspace = true
+tench-office-io.workspace = true
+tench-shared-types.workspace = true
+tench-storage-core.workspace = true
+tench-office-runtime.workspace = true
+tench-ui = { workspace = true, features = ["tauri"] }
+
+[dev-dependencies]
+image.workspace = true
+tench-ui-automation-core.workspace = true
+tench-ui-test.workspace = true

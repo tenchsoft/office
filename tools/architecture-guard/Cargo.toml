@@ -1,0 +1,8 @@
+[package]
+name = "tench-architecture-guard"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "architecture-guard"
+path = "main.rs"

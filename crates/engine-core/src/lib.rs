@@ -1,0 +1,60 @@
+mod adapter;
+mod cache;
+mod config;
+mod hardware;
+mod health;
+mod http_compat;
+mod keys;
+mod logger;
+mod native_provider;
+mod office_ai;
+mod params;
+mod product_config;
+mod providers;
+mod queue;
+mod registry;
+mod retry;
+mod router;
+mod sessions;
+mod status;
+mod tasks;
+mod templates;
+mod tokens;
+mod tools;
+mod traits;
+mod transports;
+mod util;
+mod versions;
+mod wire;
+
+pub use adapter::{AdapterInfo, AdapterRegistry, CloudAdapter};
+pub use cache::{CacheStats, ResponseCache};
+pub use config::{CacheConfig, EngineConfig, RetryConfig};
+pub use hardware::detect_hardware_profile;
+pub use health::{HealthMetrics, HealthMonitor, HealthStatus};
+pub use http_compat::{map_http_compat, HttpCompatResponse};
+pub use keys::ApiKeyManager;
+pub use logger::{EngineLogger, LogEntry, LogLevel};
+pub use native_provider::NativeProvider;
+pub use office_ai::{
+    office_engine_status, run_office_chat, OfficeChatResult, OfficeEngineStatus, OFFICE_CHAT_MODEL,
+};
+pub use params::{validate_params, ModelParams, ParamPreset};
+pub use product_config::{ProductConfig, ProductId, ProductModelConfig};
+pub use providers::{LlamaCppProvider, LocalProvider, MockProvider, OllamaProvider};
+pub use queue::{QueuedRequest, RequestPriority, RequestQueue};
+pub use registry::{ModelMeta, ModelRegistry};
+pub use retry::RetryPolicy;
+pub use router::{EngineRouter, MultiProviderRouter};
+pub use sessions::{ConversationSession, SessionManager};
+pub use status::{products, route_preview, status, EngineStatus, RoutePreview};
+pub use templates::{PromptTemplate, PromptTemplateRegistry};
+pub use tokens::{CostTracker, TokenCounter};
+pub use tools::{ToolDefinition, ToolError, ToolParam, ToolRegistry, ToolResult};
+pub use traits::{EngineClient, EngineEventStream, EngineProvider, EngineTransport};
+pub use transports::{HttpCompatTransport, LocalIpcTransport, MockTransport, RemoteHttpTransport};
+pub use versions::{ModelVersion, ModelVersionState, PinPolicy, VersionManager};
+pub use wire::{set_tench_app_id, set_tench_request_id};
+
+#[cfg(test)]
+mod tests;

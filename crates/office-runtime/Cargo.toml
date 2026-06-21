@@ -1,0 +1,14 @@
+[package]
+name = "tench-office-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Shared Tench office app runtime boundaries"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+tench-document-core.workspace = true
+tench-hwp-io.workspace = true
+tench-office-io.workspace = true

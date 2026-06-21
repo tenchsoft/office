@@ -1,0 +1,13 @@
+[package]
+name = "tench-ui-automation-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Shared protocol for Tench Rust-native UI automation and agent debugging"
+
+[dependencies]
+serde.workspace = true
+
+[lib]
+name = "tench_ui_automation_core"

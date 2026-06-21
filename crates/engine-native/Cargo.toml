@@ -1,0 +1,11 @@
+[package]
+name = "tench-engine-native"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Tench native local inference engine components"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

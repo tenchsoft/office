@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tench Kodocs",
+  "version": "0.1.0",
+  "identifier": "com.tench.kodocs",
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Tench Kodocs",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1040,
+        "minHeight": 700,
+        "resizable": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "name": "HWP Document",
+        "description": "Hangul Word Processor document",
+        "ext": ["hwp", "hwpx", "hwt"]
+      }
+    ]
+  },
+  "build": {
+    "frontendDist": "./frontend"
+  }
+}

@@ -1,0 +1,18 @@
+[package]
+name = "tench-ui-test"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Test harness for Rust-native UI testing with tench-ui"
+
+[dependencies]
+tench-ui.workspace = true
+tench-ui-automation-core.workspace = true
+accesskit = "0.24"
+image = { workspace = true }
+kurbo = "0.13"
+pollster.workspace = true
+
+[lib]
+name = "tench_ui_test"
