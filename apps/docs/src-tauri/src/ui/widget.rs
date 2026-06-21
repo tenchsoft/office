@@ -15,6 +15,16 @@ impl Widget for DocsApp {
         // Sync maximized flag so the caption buttons paint the correct glyph.
         self.state.window_maximized = ctx.global.window_maximized;
 
+        // Sync license status from the local credential store so the menu
+        // bar's notification label can decide whether to paint.
+        if let Some(store) = &self.license_store {
+            use tench_license_store::LicenseStatus;
+            self.state.license_active = match store.status() {
+                LicenseStatus::Active => true,
+                _ => false,
+            };
+        }
+
         // Ensure layout cache is warm before rendering
         self.state.ensure_layout_cache();
 
@@ -136,6 +146,8 @@ impl Widget for DocsApp {
             paint_special_char_modal(p, cache, size, sc_state);
         } else if let Some(modal) = &self.state.active_modal {
             paint_docs_modal(p, cache, size, modal, self.state.hovered_menu_item);
+        } else if let Some(lic_state) = &self.state.license_modal {
+            chrome::paint_license_modal(p, cache, size, lic_state, self.state.license_active);
         }
 
         // Toolbar dropdowns render AFTER all other elements (Z-order fix)

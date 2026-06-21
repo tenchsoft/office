@@ -39,9 +39,10 @@ pub(super) fn paint_title_row(
 
 pub(super) fn menu_at(x: f64) -> Option<&'static str> {
     let mut left = 12.0;
-    for name in ["File", "Edit", "View", "Insert", "Format", "Tools", "Help"] {
+    for name in ["File", "Edit", "View", "Insert", "Format", "Tools", "License", "Help"] {
         let width = match name {
             "Insert" | "Format" => 54.0,
+            "License" => 50.0,
             _ => 42.0,
         };
         if x >= left && x < left + width {
@@ -107,6 +108,7 @@ pub(super) fn menu_items_for(menu_name: &str) -> Vec<&'static str> {
             "Block Quote",
         ],
         "Tools" => vec!["Word Count", "Track Changes", "Spell Check"],
+        "License" => vec!["Activate License", "Generate PC Code", "Release Device"],
         "Help" => vec!["About", "Keyboard Shortcuts"],
         _ => vec![],
     }
@@ -748,6 +750,188 @@ pub(super) fn paint_docs_toast(
         state::c_text_light(),
         11.0,
         tench_ui::parley::FontWeight::BOLD,
+        false,
+        false,
+    );
+}
+
+/// Geometry of the License activation modal. Centralized so paint, hit-test,
+/// and automation stay in sync.
+pub(super) fn license_modal_rect(size: Size) -> Rect {
+    let modal_w = 420.0;
+    let modal_h = 220.0;
+    Rect::new(
+        size.width / 2.0 - modal_w / 2.0,
+        size.height / 2.0 - modal_h / 2.0,
+        size.width / 2.0 + modal_w / 2.0,
+        size.height / 2.0 + modal_h / 2.0,
+    )
+}
+
+pub(super) fn license_modal_close_rect(modal: Rect) -> Rect {
+    Rect::new(
+        modal.x1 - 86.0,
+        modal.y1 - 44.0,
+        modal.x1 - 16.0,
+        modal.y1 - 16.0,
+    )
+}
+
+pub(super) fn license_modal_activate_rect(modal: Rect) -> Rect {
+    Rect::new(
+        modal.x1 - 170.0,
+        modal.y1 - 44.0,
+        modal.x1 - 94.0,
+        modal.y1 - 16.0,
+    )
+}
+
+pub(super) fn license_modal_input_rect(modal: Rect) -> Rect {
+    Rect::new(
+        modal.x0 + 16.0,
+        modal.y0 + 100.0,
+        modal.x1 - 16.0,
+        modal.y0 + 130.0,
+    )
+}
+
+pub(super) fn paint_license_modal(
+    p: &mut Painter<'_>,
+    cache: &mut TextCache,
+    size: Size,
+    license_state: &crate::ui::state::LicenseModalState,
+    license_active: bool,
+) {
+    use state::c_accent;
+    let modal = license_modal_rect(size);
+
+    // Semi-transparent backdrop
+    p.fill_rect(
+        Rect::new(0.0, 0.0, size.width, size.height),
+        Color::rgba8(0, 0, 0, 100),
+    );
+
+    p.fill_rounded_rect(modal, state::c_menu_bg(), 6.0);
+    p.stroke_rounded_rect(modal, state::c_separator(), 1.0, 6.0);
+
+    // Title
+    p.draw_text_cached(
+        cache,
+        "License",
+        modal.x0 + 16.0,
+        modal.y0 + 28.0,
+        state::c_text_light(),
+        14.0,
+        tench_ui::parley::FontWeight::BOLD,
+        false,
+        false,
+    );
+
+    // Status line
+    let status_label = if license_active {
+        "Status: Active"
+    } else if license_state.busy {
+        "Status: Activating..."
+    } else {
+        "Status: Not activated"
+    };
+    let status_color = if license_active {
+        c_accent()
+    } else {
+        state::c_text_dim()
+    };
+    p.draw_text_cached(
+        cache,
+        status_label,
+        modal.x0 + 16.0,
+        modal.y0 + 56.0,
+        status_color,
+        12.0,
+        tench_ui::parley::FontWeight::NORMAL,
+        false,
+        false,
+    );
+
+    // License key label
+    p.draw_text_cached(
+        cache,
+        "License key:",
+        modal.x0 + 16.0,
+        modal.y0 + 88.0,
+        state::c_text_dim(),
+        11.0,
+        tench_ui::parley::FontWeight::NORMAL,
+        false,
+        false,
+    );
+
+    // License key input field
+    let input_rect = license_modal_input_rect(modal);
+    p.fill_rounded_rect(input_rect, Color::rgba8(0x0A, 0x0A, 0x0A, 255), 4.0);
+    p.stroke_rounded_rect(input_rect, state::c_separator(), 1.0, 4.0);
+    let display = if license_state.license_key_input.is_empty() {
+        "TENCH-XXXX-XXXX-XXXX-XXXX".to_string()
+    } else {
+        license_state.license_key_input.clone()
+    };
+    let text_color = if license_state.license_key_input.is_empty() {
+        state::c_text_dim()
+    } else {
+        state::c_text_light()
+    };
+    p.draw_text_cached(
+        cache,
+        &display,
+        input_rect.x0 + 8.0,
+        input_rect.y0 + 18.0,
+        text_color,
+        11.0,
+        tench_ui::parley::FontWeight::NORMAL,
+        false,
+        false,
+    );
+
+    // Optional status message (error or success)
+    if !license_state.status_message.is_empty() {
+        p.draw_text_cached(
+            cache,
+            &license_state.status_message,
+            modal.x0 + 16.0,
+            modal.y0 + 152.0,
+            c_accent(),
+            11.0,
+            tench_ui::parley::FontWeight::NORMAL,
+            false,
+            false,
+        );
+    }
+
+    // Activate button
+    let activate_rect = license_modal_activate_rect(modal);
+    p.fill_rounded_rect(activate_rect, c_accent(), 4.0);
+    p.draw_text_cached(
+        cache,
+        "Activate",
+        activate_rect.x0 + 22.0,
+        activate_rect.y0 + 18.0,
+        state::c_menu_bg(),
+        11.0,
+        tench_ui::parley::FontWeight::BOLD,
+        false,
+        false,
+    );
+
+    // Close button
+    let close_rect = license_modal_close_rect(modal);
+    p.stroke_rounded_rect(close_rect, state::c_separator(), 1.0, 4.0);
+    p.draw_text_cached(
+        cache,
+        "Close",
+        close_rect.x0 + 22.0,
+        close_rect.y0 + 18.0,
+        state::c_text_light(),
+        11.0,
+        tench_ui::parley::FontWeight::NORMAL,
         false,
         false,
     );

@@ -279,6 +279,49 @@ impl DocsApp {
                 self.state.toast = None;
                 ctx.request_paint();
             }
+            "Activate License" => {
+                self.state.active_modal = None;
+                self.state.license_modal = Some(crate::ui::state::LicenseModalState::default());
+                self.state.toast = None;
+                ctx.request_paint();
+            }
+            "Generate PC Code" => {
+                self.state.active_modal = None;
+                if let Some(store) = &self.license_store {
+                    let state = store.state();
+                    let meta = serde_json::json!({
+                        "os": std::env::consts::OS,
+                        "hostname": std::env::var("HOSTNAME")
+                            .or_else(|_| std::env::var("COMPUTERNAME"))
+                            .unwrap_or_else(|_| "unknown".into()),
+                        "tench_app": "docs",
+                        "tench_ver": env!("CARGO_PKG_VERSION"),
+                    });
+                    match tench_license_store::encode_pc_request_code(&state.device_id, meta) {
+                        Ok(code) => {
+                            self.state.show_toast(&code);
+                        }
+                        Err(_) => {
+                            self.state.show_toast("Failed to generate PC code");
+                        }
+                    }
+                } else {
+                    self.state.show_toast("License store unavailable");
+                }
+                ctx.request_paint();
+            }
+            "Release Device" => {
+                self.state.active_modal = None;
+                if let Some(store) = &self.license_store {
+                    match tench_update_client::release_license(store) {
+                        Ok(()) => self.state.show_toast("Device released"),
+                        Err(e) => self.state.show_toast(&format!("Release failed: {e}")),
+                    }
+                } else {
+                    self.state.show_toast("License store unavailable");
+                }
+                ctx.request_paint();
+            }
             "Export As" => {
                 self.save_as_dialog();
                 ctx.request_paint();

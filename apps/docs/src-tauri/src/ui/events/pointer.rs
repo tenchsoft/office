@@ -57,6 +57,29 @@ impl DocsApp {
                         }
                         return;
                     }
+                    // Notification label (between Help and title pill). Only
+                    // hot when the label is currently visible.
+                    if crate::ui::menu_bar::notification_label_message(&self.state).is_some() {
+                        let label_rect = crate::ui::menu_bar::notification_label_rect(
+                            Rect::new(0.0, 0.0, win_w, MENU_BAR_H),
+                        );
+                        if label_rect.contains(e.pos) {
+                            // Open pricing page in default browser via shell plugin.
+                            // tauri-plugin-shell::open is deprecated but still
+                            // functional; migration to tauri-plugin-opener is a
+                            // follow-up.
+                            if let Some(handle) = &self.app_handle {
+                                #[allow(deprecated)]
+                                use tauri_plugin_shell::ShellExt;
+                                #[allow(deprecated)]
+                                let _ = handle.shell().open(
+                                    "https://tenchsoft.com/pricing",
+                                    None,
+                                );
+                            }
+                            return;
+                        }
+                    }
                     if let Some(name) = menu_at(e.pos.x) {
                         self.state.active_modal = Some(name.to_string());
                         self.state.hovered_menu_item = None;
@@ -73,6 +96,56 @@ impl DocsApp {
                         ctx.submit_window_action(WindowAction::StartDrag);
                     }
                     return;
+                }
+
+                // License modal click handling (Close button). The Activate
+                // button currently delegates to the keyboard flow; wiring the
+                // click → activate_license call is a follow-up.
+                if let Some(_lic) = &self.state.license_modal.clone() {
+                    let size = Size::new(self.state.last_window_size.0, self.state.last_window_size.1);
+                    let modal = crate::ui::chrome::license_modal_rect(size);
+                    let close_rect = crate::ui::chrome::license_modal_close_rect(modal);
+                    if close_rect.contains(e.pos) {
+                        self.state.license_modal = None;
+                        ctx.request_paint();
+                        return;
+                    }
+                    let activate_rect = crate::ui::chrome::license_modal_activate_rect(modal);
+                    if activate_rect.contains(e.pos) {
+                        if let Some(store) = self.license_store.clone() {
+                            let key = self
+                                .state
+                                .license_modal
+                                .as_ref()
+                                .map(|m| m.license_key_input.clone())
+                                .unwrap_or_default();
+                            if !key.is_empty() {
+                                match tench_update_client::activate_license(
+                                    &store,
+                                    None,
+                                    &key,
+                                    "docs",
+                                    env!("CARGO_PKG_VERSION"),
+                                ) {
+                                    Ok(()) => {
+                                        if let Some(m) = &mut self.state.license_modal {
+                                            m.status_message = "Activated".into();
+                                            m.busy = false;
+                                        }
+                                    }
+                                    Err(err) => {
+                                        if let Some(m) = &mut self.state.license_modal {
+                                            m.status_message =
+                                                format!("Activation failed: {err}");
+                                            m.busy = false;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        ctx.request_paint();
+                        return;
+                    }
                 }
 
                 // Handle print preview modal clicks

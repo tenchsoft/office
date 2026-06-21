@@ -20,6 +20,11 @@ impl DocsApp {
             return self.handle_link_modal_keyboard(kb);
         }
 
+        // If license modal is open, route keyboard input to it
+        if self.state.license_modal.is_some() {
+            return self.handle_license_modal_keyboard(kb);
+        }
+
         // If comment modal is open, route keyboard input to it
         if self.state.comment_modal.is_some() {
             return self.handle_comment_modal_keyboard(kb, ctx);
@@ -413,6 +418,67 @@ impl DocsApp {
                 if let Some(link_state) = &mut self.state.link_modal {
                     link_state.url.insert(link_state.cursor_pos, ' ');
                     link_state.cursor_pos += 1;
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Handle keyboard input for the License activation modal.
+    /// - Escape → close
+    /// - Enter → trigger activation
+    /// - Backspace → delete last char
+    /// - Character (printable) → append (uppercased; license keys are case-insensitive)
+    pub(in crate::ui) fn handle_license_modal_keyboard(
+        &mut self,
+        kb: &KeyboardEvent,
+    ) -> bool {
+        match &kb.logical_key {
+            LogicalKey::Named(NamedKey::Escape) => {
+                self.state.license_modal = None;
+                true
+            }
+            LogicalKey::Named(NamedKey::Enter) => {
+                if let Some(store) = self.license_store.clone() {
+                    let key = self
+                        .state
+                        .license_modal
+                        .as_ref()
+                        .map(|m| m.license_key_input.clone())
+                        .unwrap_or_default();
+                    if !key.is_empty() {
+                        match tench_update_client::activate_license(
+                            &store,
+                            None,
+                            &key,
+                            "docs",
+                            env!("CARGO_PKG_VERSION"),
+                        ) {
+                            Ok(()) => {
+                                if let Some(m) = &mut self.state.license_modal {
+                                    m.status_message = "Activated".into();
+                                }
+                            }
+                            Err(err) => {
+                                if let Some(m) = &mut self.state.license_modal {
+                                    m.status_message = format!("Activation failed: {err}");
+                                }
+                            }
+                        }
+                    }
+                }
+                true
+            }
+            LogicalKey::Named(NamedKey::Backspace) => {
+                if let Some(m) = &mut self.state.license_modal {
+                    m.license_key_input.pop();
+                }
+                true
+            }
+            LogicalKey::Character(c) => {
+                if let Some(m) = &mut self.state.license_modal {
+                    m.license_key_input.push_str(&c.to_uppercase());
                 }
                 true
             }

@@ -22,12 +22,14 @@ pub(crate) fn docs_automation_nodes(
         ("Insert", "docs.menu.insert"),
         ("Format", "docs.menu.format"),
         ("Tools", "docs.menu.tools"),
+        ("License", "docs.menu.license"),
         ("Help", "docs.menu.help"),
     ];
     let mut menu_x = 12.0;
     for (name, debug_id) in menus {
         let menu_w = match name {
             "Insert" | "Format" => 54.0,
+            "License" => 50.0,
             _ => 42.0,
         };
         push_docs_node(
